@@ -44,6 +44,7 @@ class TrussProblem(Problem):
         # For every pair of z-coordinates z1 and z2, store the number of good solutions where z1 >, < or = z2
         self.z_monotonicity_matrix = np.zeros([3, 10, 10])
         self.z_avg = np.zeros(10)
+        self.percent_rank_0 = None
 
         # self.matlab_engine = matlab.engine.start_matlab()
 
@@ -155,17 +156,17 @@ def get_monotonicity_pattern(x, f, rank):
 
 
 def record_state(algorithm):
-    # TODO: Add max gen to hdf file
-    if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0:
-        return
-
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
     rank_pop = algorithm.pop.get('rank')
+    # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
 
     # Calculate avarage z-coordinate across all non-dominated solutions
     algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
-    # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
+    algorithm.problem.percent_rank_0 = x_pop[rank_pop == 0].shape[0] / x_pop.shape[0]
+    # TODO: Add max gen to hdf file
+    if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0:
+        return
 
     with h5py.File(os.path.join(save_file, 'optimization_history.hdf5'), 'a') as hf:
         g1 = hf.create_group(f'gen{algorithm.n_gen}')
@@ -189,11 +190,10 @@ def record_state(algorithm):
 if __name__ == '__main__':
     seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     seed = seed_list[0]
-    save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
-    os.makedirs(save_file)
+
     problem = TrussProblem()
     truss_optimizer = NSGA2(
-        pop_size=20,
+        pop_size=500,
         # n_offsprings=10,
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
@@ -201,9 +201,18 @@ if __name__ == '__main__':
         eliminate_duplicates=True,
         callback=record_state
     )
-    truss_optimizer.repair = MonotonicityRepair()
+    save_file = os.path.join('output', f'truss_nsga2_repair_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
-    termination = get_termination("n_gen", 50)
+    truss_optimizer.repair = MonotonicityRepair()
+    if truss_optimizer.repair is not None:
+        save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+        print("======================")
+        print("Repair operator active")
+        print("======================")
+
+    os.makedirs(save_file)
+    termination = get_termination("n_gen", 2000)
+
     res = minimize(problem,
                    truss_optimizer,
                    termination,

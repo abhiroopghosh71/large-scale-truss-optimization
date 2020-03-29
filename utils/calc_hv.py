@@ -13,7 +13,7 @@ def calc_hv(out_file):
         gen_no = int(key[3:])
         f_current_gen = np.array(hf[key]['F'])
         f_min_point = np.array([0, 0])
-        f_max_point = np.array([30000, 0.1])
+        f_max_point = np.array([50000, 5])
         f_current_gen_normalized = (f_current_gen - f_min_point) / (f_max_point - f_min_point)
         hv_current_gen = hv_indicator.calc(f_current_gen_normalized)
         hv_all_gen.append([gen_no, hv_current_gen])
@@ -27,23 +27,23 @@ def calc_hv(out_file):
 
 if __name__ == '__main__':
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/' \
-                  'CP3/TrussResults/20200322_nsga2_truss/truss_nsga2_seed184716924_20200322-015313/' \
+                  'CP3/TrussResults/truss_20200319_repair/truss_nsga2_seed184716924_20200329-180840/' \
                   'optimization_history.hdf5'
 
     hv_base = calc_hv(output_file)
 
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
-                  'TrussResults/20200322_nsga2_truss/truss_symmetric_nsga2_seed184716924_20200322-015318/' \
+                  'TrussResults/truss_20200319_repair/truss_nsga2_repair_seed184716924_20200329-180836/' \
                   'optimization_history.hdf5'
 
-    hv_symmetric = calc_hv(output_file)
+    hv_repair = calc_hv(output_file)
 
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(111)
     # ax1.scatter(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
     # ax1.scatter(hv_symmetric[:, 0], hv_symmetric[:, 1], c='red', alpha=0.5, label='Symmetric Truss')
     ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
-    ax1.plot(hv_symmetric[:, 0], hv_symmetric[:, 1], c='red', alpha=0.5, label='Symmetric Truss')
+    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.5, label='Repair')
     ax1.set_ylim(0, 1.2)
     ax1.set_xlabel('Generations')
     ax1.set_ylabel('Hypervolume')
