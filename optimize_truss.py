@@ -5,13 +5,14 @@ import matlab.engine
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 import matplotlib.pyplot as plt
 import multiprocessing as mp
-import pickle
 import h5py
 import os
 import time
 
+from truss_repair import MonotonicityRepair
 from obj_eval import calc_obj
 
 
@@ -26,6 +27,7 @@ class TrussProblem(Problem):
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
+        self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
 
         coordinates_file = 'truss/sample_input/coord_iscso.csv'
         connectivity_file = 'truss/sample_input/connect_iscso.csv'
@@ -33,17 +35,15 @@ class TrussProblem(Problem):
         loadn_file = 'truss/sample_input/loadn_iscso.csv'
         force_file = 'truss/sample_input/force_iscso.csv'
 
-        # coordinates = matlab.double(np.loadtxt(coordinates_file, delimiter=',').tolist())
-        # connectivity = matlab.double(np.loadtxt(connectivity_file, delimiter=',').tolist())
-        # fixednodes = matlab.double(np.loadtxt(fixednodes_file, delimiter=',').reshape(-1, 1).tolist())
-        # loadn = matlab.double(np.loadtxt(loadn_file, delimiter=',').reshape(-1, 1).tolist())
-        # force = matlab.double(np.loadtxt(force_file, delimiter=',').reshape(-1, 1).tolist())
-
         self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
         self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
-        self.fixed_nodes = np.loadtxt(fixednodes_file, delimiter=',').reshape(-1, 1)
-        self.load_nodes = np.loadtxt(loadn_file, delimiter=',').reshape(-1, 1)
+        self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
+        self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
         self.force = np.loadtxt(force_file, delimiter=',').reshape(-1, 1)
+
+        # For every pair of z-coordinates z1 and z2, store the number of good solutions where z1 >, < or = z2
+        self.z_monotonicity_matrix = np.zeros([3, 10, 10])
+        self.z_avg = np.zeros(10)
 
         # self.matlab_engine = matlab.engine.start_matlab()
 
@@ -51,29 +51,7 @@ class TrussProblem(Problem):
                          n_obj=2,
                          n_constr=1,
                          xl=np.concatenate((0.005 * np.ones(260), -25 * np.ones(10))),
-                         xu=np.concatenate((0.066 * np.ones(260), 3.5 * np.ones(10))))
-
-    # @staticmethod
-    # def calc_obj(x, connectivity, coordinates, fixed_nodes, load_nodes, force, density, elastic_modulus):
-    #     r = x[:260]  # Radius of each element
-    #     z = x[260:]  # Z-coordinate of bottom members
-    #
-    #     connectivity[:, 2] = r
-    #     coordinates[0:10, 2] = z
-    #     coordinates[38:48, 2] = z
-    #     coordinates[10:19, 2] = np.flip(z[1:])
-    #     coordinates[48:57, 2] = np.flip(z[1:])
-    #
-    #     weight, compliance, stress, strain = matlab_engine.run_fea(matlab.double(coordinates.tolist()),
-    #                                                                matlab.double(connectivity.tolist()),
-    #                                                                matlab.double(fixed_nodes.tolist()),
-    #                                                                matlab.double(load_nodes.tolist()),
-    #                                                                matlab.double(force.tolist()),
-    #                                                                matlab.double([density]),
-    #                                                                matlab.double([elastic_modulus]),
-    #                                                                nargout=4)
-    #
-    #     return [weight, compliance]
+                         xu=np.concatenate((0.100 * np.ones(260), 3.5 * np.ones(10))))
 
     # def _evaluate(self, x, out, *args, **kwargs):
     #     n = x.shape[0]
@@ -149,14 +127,15 @@ class TrussProblem(Problem):
 
             # density = matlab.double([self.density])
             # elastic_modulus = matlab.double([self.elastic_modulus])
-            weight, compliance, stress, strain = matlab_engine.run_fea(matlab.double(coordinates.tolist()),
-                                                                       matlab.double(connectivity.tolist()),
-                                                                       matlab.double(fixed_nodes.tolist()),
-                                                                       matlab.double(load_nodes.tolist()),
-                                                                       matlab.double(force.tolist()),
-                                                                       matlab.double([self.density]),
-                                                                       matlab.double([self.elastic_modulus]),
-                                                                       nargout=4)
+            weight, compliance, stress, strain, u, x0_new =\
+                matlab_engine.run_fea(matlab.double(coordinates.tolist()),
+                                      matlab.double(connectivity.tolist()),
+                                      matlab.double(fixed_nodes.tolist()),
+                                      matlab.double(load_nodes.tolist()),
+                                      matlab.double(force.tolist()),
+                                      matlab.double([self.density]),
+                                      matlab.double([self.elastic_modulus]),
+                                      nargout=6)
 
             f1[i] = weight
             f2[i] = compliance
@@ -168,19 +147,33 @@ class TrussProblem(Problem):
         out["G"] = np.copy(g)
 
 
+def get_monotonicity_pattern(x, f, rank):
+    monotonicity_matrix = np.zeros([3, 10, 10])
+    x_non_dominated = x[rank == 0]
+
+    return 0
+
+
 def record_state(algorithm):
     # TODO: Add max gen to hdf file
     if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0:
         return
+
+    x_pop = algorithm.pop.get('X')
+    f_pop = algorithm.pop.get('F')
+    rank_pop = algorithm.pop.get('rank')
+
+    # Calculate avarage z-coordinate across all non-dominated solutions
+    algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
+    # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
+
     with h5py.File(os.path.join(save_file, 'optimization_history.hdf5'), 'a') as hf:
         g1 = hf.create_group(f'gen{algorithm.n_gen}')
 
-        X = algorithm.pop.get('X')
-        F = algorithm.pop.get('F')
         # for p in range(algorithm.pop_size):
         # g2 = g1.create_group(f'sol{p + 1}')
-        g1.create_dataset('X', data=X)
-        g1.create_dataset('F', data=F)
+        g1.create_dataset('X', data=x_pop)
+        g1.create_dataset('F', data=f_pop)
 
         num_members = algorithm.pop[0].data['stress'].shape[0]
         stress = np.zeros([algorithm.pop_size, num_members])
@@ -199,8 +192,8 @@ if __name__ == '__main__':
     save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
     os.makedirs(save_file)
     problem = TrussProblem()
-    algorithm = NSGA2(
-        pop_size=500,
+    truss_optimizer = NSGA2(
+        pop_size=20,
         # n_offsprings=10,
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
@@ -208,10 +201,11 @@ if __name__ == '__main__':
         eliminate_duplicates=True,
         callback=record_state
     )
+    truss_optimizer.repair = MonotonicityRepair()
 
-    termination = get_termination("n_gen", 2000)
+    termination = get_termination("n_gen", 50)
     res = minimize(problem,
-                   algorithm,
+                   truss_optimizer,
                    termination,
                    seed=seed,
                    save_history=False,
@@ -226,8 +220,3 @@ if __name__ == '__main__':
     plt.show()
 
     # pool.close()
-
-    # array([[6.76379445e+04, 2.72801086e+00],
-    #        [6.47451475e+04, 3.00652541e+00],
-    #        [6.62875302e+04, 2.78385282e+00],
-    #        [6.59075983e+04, 2.79265365e+00]])

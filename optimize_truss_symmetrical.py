@@ -26,6 +26,7 @@ class TrussProblem(Problem):
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
+        self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
 
         coordinates_file = 'truss/sample_input/coord_iscso.csv'
         connectivity_file = 'truss/sample_input/connect_iscso.csv'
@@ -41,8 +42,8 @@ class TrussProblem(Problem):
 
         self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
         self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
-        self.fixed_nodes = np.loadtxt(fixednodes_file, delimiter=',').reshape(-1, 1)
-        self.load_nodes = np.loadtxt(loadn_file, delimiter=',').reshape(-1, 1)
+        self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
+        self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
         self.force = np.loadtxt(force_file, delimiter=',').reshape(-1, 1)
 
         # self.matlab_engine = matlab.engine.start_matlab()
@@ -51,7 +52,7 @@ class TrussProblem(Problem):
                          n_obj=2,
                          n_constr=1,
                          xl=np.concatenate((0.005 * np.ones(187), -25 * np.ones(10))),
-                         xu=np.concatenate((0.066 * np.ones(187), 3.5 * np.ones(10))))
+                         xu=np.concatenate((0.100 * np.ones(187), 3.5 * np.ones(10))))
 
     def _evaluate(self, x_in, out, *args, **kwargs):
         x = np.copy(x_in)

@@ -4,14 +4,27 @@ close all
 n_nodes = 19 * 4;
 truss_length = 18*4;
 truss_width = 4;
+density = 7121.4;  % kg/m3
+elastic_modulus = 200e9;  % Pa
+yield_stress = 248.2e6;  % Pa
 
 connectivity = [];
-load_nodes = [1; 39; 19; 57];
+% load_nodes = [1; 39; 19; 57];
 % fixed_nodes = [1; 19; 20; 38; 39; 57; 58; 76];
-fixed_nodes = [20; 38; 58; 76];
-force_xyz = [5000, 1000, 5000];  % in N
+% fixed_nodes = [20; 38; 58; 76];
+fixed_nodes = [1; 19; 39; 57];
+
+% Add all unsupported nodes as load nodes
+load_nodes = [];
+for ii = 1:n_nodes
+    if sum(fixed_nodes == ii) ~= 1
+        load_nodes = [load_nodes; ii];
+    end
+end
+force_xyz = [5000, 1000, -5000];  % in N
 coord = zeros(n_nodes, 3);
 member_radius = 0.015;  % in m
+
 
 %% Create connectivity matrix
 % Connections in x-axis
@@ -91,20 +104,16 @@ connectivity_file = 'truss/sample_input/connect_iscso.csv';
 fixednodes_file = 'truss/sample_input/fixn_iscso.csv';
 loadn_file = 'truss/sample_input/loadn_iscso.csv';
 force_file = 'truss/sample_input/force_iscso.csv';
-
+workspace_mat_file = 'truss/sample_input/workspace_iscso.mat';
+% 
 % writematrix(coord, coordinates_file, 'Delimiter',',')
 % writematrix(connectivity, connectivity_file, 'Delimiter',',')
-% writematrix(fixed_nodes, fixednodes_file, 'Delimiter',',')
-% writematrix(load_nodes, loadn_file, 'Delimiter',',')
+% writematrix(fixed_nodes, fixednodes_file)
+% writematrix(load_nodes, loadn_file)
 % writematrix(force_xyz, force_file, 'Delimiter',',')
+% save(workspace_mat_file)
 fprintf("Files not written\n")
 
 draw_truss(coord, connectivity, fixed_nodes, load_nodes, force_xyz)
 
-
-density = 7121.4;  % kg/m3
-elastic_modulus = 200e9;  % Pa
-% coord_mm = coord * 1000;
-% connect_mm = connectivity;
-% connect_mm(:, 3) = connect_mm(:, 3) * 1000;
-[weight, compliance, stress, strain] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+[weight, compliance, stress, strain, U, x0_new] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);

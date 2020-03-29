@@ -1,9 +1,13 @@
-function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivity, fixednodes, loadn, force, density, elastic_modulus)
+%% Finite Element Analysis of 3D truss and frame
+% Author: Qiren Gao, Michigan State University
+% Latest modifications made by Abhiroop Ghosh, Michigan State University
+function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, Connectivity, fixednodes, loadn, force, density, elastic_modulus)
     % Coordinates -> mm
     % Radius -> Connectivity(:, 3) -> mm
     % Density -> kg/mm3
     
-    strtype = 'frame';
+%    strtype = 'frame';
+     strtype = 'truss';
 
     preXr = Coordinates;
     Xr = preXr';
@@ -17,16 +21,25 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
 
     RadiusNEL=zeros(numel0,1);
     lengths=zeros(numel0,1);
-    for nel=1:numel0
-        nodes=connec0(:,nel)';
-        RadiusNEL(nel,1) = R(1,nel);
-        xnel = x0(:,nodes);
-        dx=xnel(1,2)-xnel(1,1);
-        dy=xnel(2,2)-xnel(2,1);
-        dz=xnel(3,2)-xnel(3,1);
-        lnel=sqrt(dx*dx+dy*dy+dz*dz);
-        lengths(nel,1)=lnel;
-    end
+%     for nel=1:numel0
+%         nodes=connec0(:,nel)';
+%         RadiusNEL(nel,1) = R(1,nel);
+%         xnel = x0(:,nodes);
+%         dx=xnel(1,2)-xnel(1,1);
+%         dy=xnel(2,2)-xnel(2,1);
+%         dz=xnel(3,2)-xnel(3,1);
+%         lnel=sqrt(dx*dx+dy*dy+dz*dz);
+%         lengths(nel,1)=lnel;
+%     end
+    nel = 1:numel0;
+    nodes=connec0(:,nel)';
+    RadiusNEL(nel,1) = R(1,nel);
+    xnel = x0(:,nodes');
+    dx=xnel(1,2*nel)-xnel(1,2*nel-1);
+    dy=xnel(2,2*nel)-xnel(2,2*nel-1);
+    dz=xnel(3,2*nel)-xnel(3,2*nel-1);
+    lnel=sqrt(dx.*dx+dy.*dy+dz.*dz);
+    lengths(nel,1)=lnel;
 
     Fx0 = force(1);
     Fy0 = force(2);
@@ -49,8 +62,10 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
     %      1,0,0 means "x     disp fixed"   etc...
     %==========================================================================
 
-    xmin= min(x');
-    xmax= max(x');
+%     xmin= min(x');
+%     xmax= max(x');
+    xmin= min(x, 1);
+    xmax= max(x, 1);
     eps=norm(xmax-xmin)*1e-5;
     %     fixednodes=find(abs(x(1,:)-min(x(1,:)))<eps);
     fixednodes = fixednodes';
@@ -109,7 +124,7 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
     % Deformation of nodes for every dof
     U=zeros(neq,1);
     U(freedofs,:)=sk(freedofs,freedofs)\F(freedofs,:);
-    if any(isnan(U)==1)
+    if any(isnan(U))
         compliance = 10000;
     else
         compliance=0;
@@ -123,28 +138,26 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
     
     x0_new = zeros(size(x0));
     % Get the new coordinates of each node based on the displacements U
-    for ii = 1:nx
-        x0_new(1:3, ii) = x0(1:3, ii) + U(6 * (ii-1) + 1: 6 * (ii-1) + 3);
-    end
+%     for ii = 1:nx
+%         x0_new(1:3, ii) = x0(1:3, ii) + U(6 * (ii-1) + 1: 6 * (ii-1) + 3);
+%     end
+    x0_new(1:3, 1:nx) = x0(1:3, 1:nx) + U(6 * (1:nx-1) + 1: 6 * (1:nx-1) + 3);
     
     new_lengths = zeros([numel, 1]);
     strain = zeros([numel, 1]);
     stress = zeros([numel, 1]);
     % Get the new lengths of members from the connectivity matrix connec0
-    for ii = 1:numel0
-        elem_nodes = connec0(:, ii)';
-        new_lengths(ii) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
-        strain(ii) = (new_lengths(ii) - lengths(ii)) / lengths(ii);
-        stress(ii) = elastic_modulus * strain(ii);
-%         nodes=connec0(:,nel)';
-%         RadiusNEL(nel,1) = R(1,nel);
-%         xnel = x0(:,nodes);
-%         dx=xnel(1,2)-xnel(1,1);
-%         dy=xnel(2,2)-xnel(2,1);
-%         dz=xnel(3,2)-xnel(3,1);
-%         lnel=sqrt(dx*dx+dy*dy+dz*dz);
-%         lengths(nel,1)=lnel;
-    end
+%     for ii = 1:numel0
+%         elem_nodes = connec0(:, ii)';
+%         new_lengths(ii) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
+%         strain(ii) = (new_lengths(ii) - lengths(ii)) / lengths(ii);
+%         stress(ii) = elastic_modulus * strain(ii);
+%     end
+    elem_nodes = connec0(:, 1:numel0)';
+    new_lengths(1:numel0) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
+    strain(1:numel0) = (new_lengths(1:numel0) - lengths(1:numel0)) ./ lengths(1:numel0);
+    
+    x0_new = x0_new';
     
     %==========================================================================
     function [freedofs,fixeq] = setbc(numnodes,ndf,fixednodes,fixeddof)
@@ -170,7 +183,7 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
             end
         end
     end
-    alldofs     = [1:neq];
+    alldofs     = 1:neq;
     freedofs    = setdiff(alldofs,fixeq);
     end
 
@@ -230,7 +243,7 @@ function [weight, compliance, stress, strain] = run_fea(Coordinates, Connectivit
     skT=sparse(144,numel);
     % rotArray=sparse(144,numel);
 
-    for nel=1:numel;
+    for nel=1:numel
 
         % Information about element "nel"
         nodes=connec(:,nel)';

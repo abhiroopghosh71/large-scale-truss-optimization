@@ -1,8 +1,8 @@
 clear
 close all
 
-output_path = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200322_nsga2_truss/';
-experiment_path = strcat(output_path, 'truss_symmetric_nsga2_seed184716924_20200322-015318/');
+output_path = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200324_nsga2_truss/';
+experiment_path = strcat(output_path, 'truss_symmetric_nsga2_seed184716924_20200324-023906/');
 F = dlmread(strcat(experiment_path, 'f_max_gen'));
 X = dlmread(strcat(experiment_path, 'x_max_gen'));
 
@@ -11,10 +11,11 @@ coeff_var_X = std(X) ./ mean(X);
 load('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/truss/sample_input/workspace_iscso.mat', 'coord', 'connectivity', 'fixed_nodes', 'load_nodes', 'force_xyz', 'density', 'elastic_modulus')
 addpath '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization'
 
-scatter(F(:, 1), F(:, 2))
-xlabel('Weight (kg)')
-ylabel('Compliance (m/N)')
-title('Final population')
+% scatter(F(:, 1), F(:, 2))
+% xlabel('Weight (kg)')
+% ylabel('Compliance (m/N)')
+% title('Final population')
+
 % for ii = 5:99:500
 % %     if rem(ii, 100) ~= 0
 % %        continue 
