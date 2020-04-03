@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
     problem = TrussProblem()
     truss_optimizer = NSGA2(
-        pop_size=500,
+        pop_size=10,
         # n_offsprings=10,
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     )
     save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
-    truss_optimizer.repair = MonotonicityRepair()
+    # truss_optimizer.repair = MonotonicityRepair()
     if truss_optimizer.repair is not None:
         save_file = os.path.join('output', f'truss_nsga2_repair_0.8pf_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")
@@ -189,7 +189,7 @@ if __name__ == '__main__':
         print("======================")
 
     os.makedirs(save_file)
-    termination = get_termination("n_gen", 2000)
+    termination = get_termination("n_gen", 20)
 
     res = minimize(problem,
                    truss_optimizer,

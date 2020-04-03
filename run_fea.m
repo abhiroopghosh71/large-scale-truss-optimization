@@ -21,25 +21,25 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
 
     RadiusNEL=zeros(numel0,1);
     lengths=zeros(numel0,1);
-%     for nel=1:numel0
-%         nodes=connec0(:,nel)';
-%         RadiusNEL(nel,1) = R(1,nel);
-%         xnel = x0(:,nodes);
-%         dx=xnel(1,2)-xnel(1,1);
-%         dy=xnel(2,2)-xnel(2,1);
-%         dz=xnel(3,2)-xnel(3,1);
-%         lnel=sqrt(dx*dx+dy*dy+dz*dz);
-%         lengths(nel,1)=lnel;
-%     end
-    nel = 1:numel0;
-    nodes=connec0(:,nel)';
-    RadiusNEL(nel,1) = R(1,nel);
-    xnel = x0(:,nodes');
-    dx=xnel(1,2*nel)-xnel(1,2*nel-1);
-    dy=xnel(2,2*nel)-xnel(2,2*nel-1);
-    dz=xnel(3,2*nel)-xnel(3,2*nel-1);
-    lnel=sqrt(dx.*dx+dy.*dy+dz.*dz);
-    lengths(nel,1)=lnel;
+    for nel=1:numel0
+        nodes=connec0(:,nel)';
+        RadiusNEL(nel,1) = R(1,nel);
+        xnel = x0(:,nodes);
+        dx=xnel(1,2)-xnel(1,1);
+        dy=xnel(2,2)-xnel(2,1);
+        dz=xnel(3,2)-xnel(3,1);
+        lnel=sqrt(dx*dx+dy*dy+dz*dz);
+        lengths(nel,1)=lnel;
+    end
+%     nel = 1:numel0;
+%     nodes=connec0(:,nel)';
+%     RadiusNEL(nel,1) = R(1,nel);
+%     xnel = x0(:,nodes');
+%     dx=xnel(1,2*nel)-xnel(1,2*nel-1);
+%     dy=xnel(2,2*nel)-xnel(2,2*nel-1);
+%     dz=xnel(3,2*nel)-xnel(3,2*nel-1);
+%     lnel=sqrt(dx.*dx+dy.*dy+dz.*dz);
+%     lengths(nel,1)=lnel;
 
     Fx0 = force(1);
     Fy0 = force(2);
@@ -144,25 +144,25 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
     
     x0_new = zeros(size(x0));
     % Get the new coordinates of each node based on the displacements U
-%     for ii = 1:nx
-%         x0_new(1:3, ii) = x0(1:3, ii) + U(6 * (ii-1) + 1: 6 * (ii-1) + 3);
-%     end
-    x0_new(1:3, 1:nx) = x0(1:3, 1:nx) + U(6 * (1:nx-1) + 1: 6 * (1:nx-1) + 3);
+    for ii = 1:nx
+        x0_new(1:3, ii) = x0(1:3, ii) + U(6 * (ii-1) + 1: 6 * (ii-1) + 3);
+    end
+%     x0_new(1:3, 1:nx) = x0(1:3, 1:nx) + U(6 * (1:nx-1) + 1: 6 * (1:nx-1) + 3);
     
     new_lengths = zeros([numel, 1]);
     strain = zeros([numel, 1]);
     stress = zeros([numel, 1]);
     % Get the new lengths of members from the connectivity matrix connec0
-%     for ii = 1:numel0
-%         elem_nodes = connec0(:, ii)';
-%         new_lengths(ii) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
-%         strain(ii) = (new_lengths(ii) - lengths(ii)) / lengths(ii);
-%         stress(ii) = elastic_modulus * strain(ii);
-%     end
-    elem_nodes = connec0(:, 1:numel0)';
-    new_lengths(1:numel0) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
-    strain(1:numel0) = (new_lengths(1:numel0) - lengths(1:numel0)) ./ lengths(1:numel0);
-    stress(1:numel0) = elastic_modulus * strain(1:numel0);
+    for ii = 1:numel0
+        elem_nodes = connec0(:, ii)';
+        new_lengths(ii) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
+        strain(ii) = (new_lengths(ii) - lengths(ii)) / lengths(ii);
+        stress(ii) = elastic_modulus * strain(ii);
+    end
+%     elem_nodes = connec0(:, 1:numel0)';
+%     new_lengths(1:numel0) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
+%     strain(1:numel0) = (new_lengths(1:numel0) - lengths(1:numel0)) ./ lengths(1:numel0);
+%     stress(1:numel0) = elastic_modulus * strain(1:numel0);
     
     x0_new = x0_new';
     
