@@ -115,5 +115,21 @@ workspace_mat_file = 'truss/sample_input/workspace_iscso.mat';
 fprintf("Files not written\n")
 
 draw_truss(coord, connectivity, fixed_nodes, load_nodes, force_xyz)
-
 [weight, compliance, stress, strain, U, x0_new] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+
+%% TEST of FEA parallel
+% tic
+% for i=1:500
+%     [weight, compliance, stress, strain, U, x0_new] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+% end
+% toc
+% 
+% coord1 = {};
+% conn1 = {};
+% for ii = 1:500
+%     coord1{end+1} = coord;
+%     conn1{end+1} = connectivity;
+% end
+% tic
+% [weight1, compliance1, stress1, strain1, U1, x0_new1] = run_fea_parallel(coord1, conn1, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+% toc

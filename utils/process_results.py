@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 import matlab
 import matlab.engine
 
-from optimize_truss import TrussProblem
+import optimize_truss
 
 
-def write_data_to_txt(out_file_path):
+def get_x_and_f(out_file_path):
     current_dir = os.getcwd()
     os.chdir(Path(out_file_path).parent)
     hf = h5py.File(out_file_path, 'r')
@@ -28,9 +28,10 @@ def write_data_to_txt(out_file_path):
 
     fronts_max_gen = NonDominatedSorting().do(f_max_gen)
 
-    np.savetxt('x_max_gen', x_max_gen)
-    np.savetxt('f_max_gen', f_max_gen)
-    np.savetxt('pf_max_gen', f_max_gen[fronts_max_gen[0], :])
+    print("Files not saved")
+    # np.savetxt('x_max_gen', x_max_gen)
+    # np.savetxt('f_max_gen', f_max_gen)
+    # np.savetxt('pf_max_gen', f_max_gen[fronts_max_gen[0], :])
     hf.close()
     os.chdir(current_dir)
 
@@ -82,15 +83,15 @@ def convert_x_to_truss_params(x_pop, truss):
     truss.coordinates[10:19, 2] = np.flip(z[:-1])
     truss.coordinates[48:57, 2] = np.flip(z[:-1])
 
-    # weight, compliance, stress, strain, u, x0_new = \
-    #     matlab_engine.run_fea(matlab.double(coordinates.tolist()),
-    #                           matlab.double(connectivity.tolist()),
-    #                           matlab.double(truss.fixed_nodes.tolist()),
-    #                           matlab.double(truss.load_nodes.tolist()),
-    #                           matlab.double(truss.force.tolist()),
-    #                           matlab.double([truss.density]),
-    #                           matlab.double([truss.elastic_modulus]),
-    #                           nargout=6)
+    weight, compliance, stress, strain, u, x0_new = \
+        optimize_truss.matlab_engine.run_fea(matlab.double(truss.coordinates.tolist()),
+                              matlab.double(truss.connectivity.tolist()),
+                              matlab.double(truss.fixed_nodes.tolist()),
+                              matlab.double(truss.load_nodes.tolist()),
+                              matlab.double(truss.force.tolist()),
+                              matlab.double([truss.density]),
+                              matlab.double([truss.elastic_modulus]),
+                              nargout=6)
     return truss
 
 
@@ -101,34 +102,49 @@ if __name__ == '__main__':
     # Summon MATLAB, one of the Great Old Ones. Using the incantations in the matlab,engine package, we can summon
     # MATLAB powers through a Python individual. Note, however, that any external divine power takes longer to charge.
     # So in combat situations requiring quick response times, this might put you at a disadvantage.
-    matlab_engine = matlab.engine.start_matlab()
-    # matlab_engine.addpath(r'/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/'
-    #                       r'Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization', nargout=0)
+    # matlab_engine = matlab.engine.start_matlab()
+    optimize_truss.matlab_engine.addpath(
+        r'/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
+        r'iscso_based_truss_optimization/large_scale_truss_optimization', nargout=0)
 
+    # Base optimization
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/' \
-                  'CP3/TrussResults/20200326_truss_nsga2_unsupported node/truss_nsga2_seed184716924_20200326-001556/' \
+                  'CP3/TrussResults/' \
+                  '20200326_truss_nsga2_unsupported node/truss_nsga2_seed184716924_20200326-001556/' \
                   'optimization_history.hdf5'
 
-    [x, f, fronts_indx] = write_data_to_txt(output_file)
-    # plot_obj(f)
+    # Repair 0.8 percent pop in pf
+    # output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/' \
+    #               'CP3/TrussResults/' \
+    #               '20200326_truss_nsga2_unsupported node/truss_nsga2_repair_0.8pf_seed184716924_20200329-191058/' \
+    #               'optimization_history.hdf5'
+
+    [x, f, fronts_indx] = get_x_and_f(output_file)
+    plot_obj(f)
 
     # Plot the min weight and compliance trusses
     min_obj = np.min(f, axis=0)
     min_obj_indx = np.argmin(f, axis=0)
 
-    truss_min_weight = TrussProblem()
+    truss_min_weight = optimize_truss.TrussProblem()
     convert_x_to_truss_params(x[min_obj_indx[0], :], truss_min_weight)
-    plot_truss(matlab_engine, truss_min_weight, plot_title='Min. weight')
+    plot_truss(optimize_truss.matlab_engine, truss_min_weight,
+               plot_title=f'Min. weight Truss\n'
+                          f'Weight = {np.around(f[min_obj_indx[0], 0], decimals=2)} kg, '
+                          f'Compliance = {np.around(f[min_obj_indx[0], 1], decimals=2)} m/N')
 
-    truss_min_compliance = TrussProblem()
+    truss_min_compliance = optimize_truss.TrussProblem()
     convert_x_to_truss_params(x[min_obj_indx[1], :], truss_min_compliance)
-    plot_truss(matlab_engine, truss_min_compliance, plot_title='Min. compliance')
+    plot_truss(optimize_truss.matlab_engine, truss_min_compliance,
+               plot_title='Min. compliance\n'
+                          f'Weight = {np.around(f[min_obj_indx[1], 0], decimals=2)} kg, '
+                          f'Compliance = {np.around(f[min_obj_indx[1], 1], decimals=2)} m/N')
 
-    output_file_symm = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/' \
-                       'Code/CP3/TrussResults/20200326_truss_nsga2_unsupported node/' \
-                       'truss_symmetric_nsga2_seed184716924_20200326-003009/optimization_history.hdf5'
-
-    [x_symm, f_symm, fronts_indx_symm] = write_data_to_txt(output_file_symm)
+    # output_file_symm = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/' \
+    #                    'Code/CP3/TrussResults/20200326_truss_nsga2_unsupported node/' \
+    #                    'truss_symmetric_nsga2_seed184716924_20200326-003009/optimization_history.hdf5'
+    #
+    # [x_symm, f_symm, fronts_indx_symm] = write_data_to_txt(output_file_symm)
     # plot_obj(f_symm)
 
     os.chdir(curr_dir)

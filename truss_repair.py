@@ -10,7 +10,7 @@ class MonotonicityRepair(Repair):
 
     def _do(self, problem, pop, **kwargs):
         # Do repair every 10 generations and after at least 20 generations have been done
-        if kwargs['algorithm'].n_gen % 10 != 0 or problem.percent_rank_0 < 1:  # or kwargs['algorithm'].n_gen < 20:
+        if kwargs['algorithm'].n_gen % 10 != 0 or problem.percent_rank_0 < 0.8:  # or kwargs['algorithm'].n_gen < 20:
             return pop
 
         print("==========================")

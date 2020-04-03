@@ -100,6 +100,12 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
         skBy=zeros(size(skBy));
         skBz=zeros(size(skBz));
         skT=zeros(size(skT));
+%         skBy=zeros(144, numel);
+%         skBz=zeros(144, numel);
+%         skT=zeros(144, numel);
+%     else
+%         [skBy,skBz,skA,skT] = ...
+%         buildKBeamLatticeUnscaled(numel,x,connec,elastimod,shearmod);
     end
 
     %==========================================================================
@@ -156,6 +162,7 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
     elem_nodes = connec0(:, 1:numel0)';
     new_lengths(1:numel0) = norm(x0_new(:, elem_nodes(1)) - x0_new(:, elem_nodes(2)));
     strain(1:numel0) = (new_lengths(1:numel0) - lengths(1:numel0)) ./ lengths(1:numel0);
+    stress(1:numel0) = elastic_modulus * strain(1:numel0);
     
     x0_new = x0_new';
     

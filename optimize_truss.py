@@ -20,6 +20,7 @@ matlab_engine = matlab.engine.start_matlab()
 save_file = os.path.join('output', 'truss_optimization_nsga2')
 
 # pool = mp.Pool(processes=4)
+# pool = mp.Pool(mp.cpu_count())
 
 
 class TrussProblem(Problem):
@@ -50,7 +51,7 @@ class TrussProblem(Problem):
 
         super().__init__(n_var=270,
                          n_obj=2,
-                         n_constr=1,
+                         n_constr=2,
                          xl=np.concatenate((0.005 * np.ones(260), -25 * np.ones(10))),
                          xu=np.concatenate((0.100 * np.ones(260), 3.5 * np.ones(10))))
 
@@ -86,33 +87,11 @@ class TrussProblem(Problem):
         n = x.shape[0]
         f1 = np.zeros(n)
         f2 = np.zeros(n)
-        g = np.zeros(n)
+        g1 = np.zeros(n)
+        g2 = np.zeros(n)
         for i in range(n):
             r = x[i, :260]  # Radius of each element
             z = x[i, 260:]  # Z-coordinate of bottom members
-
-            # self.matlab_engine.eval('coordinates = ')
-            # self.matlab_engine.workspace['coordinates'] = matlab.double(self.coordinates.tolist())
-            # self.matlab_engine.workspace['connectivity'] = matlab.double(self.connectivity.tolist())
-            # self.matlab_engine.workspace['fixed_nodes'] = matlab.double(self.fixed_nodes.tolist())
-            # self.matlab_engine.workspace['load_nodes'] = matlab.double(self.load_nodes.tolist())
-            # self.matlab_engine.workspace['force'] = matlab.double(self.force.tolist())
-            # self.matlab_engine.workspace['r'] = matlab.double(r.reshape(-1, 1).tolist())
-            # self.matlab_engine.workspace['z'] = matlab.double(z.reshape(-1, 1).tolist())
-            # self.matlab_engine.workspace['density'] = matlab.double([self.density])
-            # self.matlab_engine.workspace['elastic_modulus'] = matlab.double([self.elastic_modulus])
-            #
-            # self.matlab_engine.eval(
-            #     "connectivity(:, 3) = r;"
-            #     "coordinates(1:10, 3) = z;"
-            #     "coordinates(39:48, 3) = z;"
-            #     "coordinates(11:19, 3) = flip(z(2:10));"
-            #     "coordinates(49:57, 3) = flip(z(2:10));"
-            #     "[weight, compliance, stress, strain] = run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus);",
-            #     nargout=0)
-            #
-            # f1[i] = self.matlab_engine.workspace['weight']
-            # f2[i] = self.matlab_engine.workspace['compliance']
 
             coordinates = np.copy(self.coordinates)
             connectivity = np.copy(self.connectivity)
@@ -126,8 +105,6 @@ class TrussProblem(Problem):
             coordinates[10:19, 2] = np.flip(z[:-1])
             coordinates[48:57, 2] = np.flip(z[:-1])
 
-            # density = matlab.double([self.density])
-            # elastic_modulus = matlab.double([self.elastic_modulus])
             weight, compliance, stress, strain, u, x0_new =\
                 matlab_engine.run_fea(matlab.double(coordinates.tolist()),
                                       matlab.double(connectivity.tolist()),
@@ -140,12 +117,13 @@ class TrussProblem(Problem):
 
             f1[i] = weight
             f2[i] = compliance
-            g[i] = matlab_engine.max(matlab_engine.abs(stress)) - self.yield_stress
+            g1[i] = matlab_engine.max(matlab_engine.abs(stress)) - self.yield_stress
+            g2[i] = matlab_engine.max(matlab_engine.abs(u)) - self.max_allowable_displacement
             kwargs['individuals'][i].data['stress'] = np.array(stress).flatten()
             kwargs['individuals'][i].data['strain'] = np.array(strain).flatten()
 
         out["F"] = np.column_stack([f1, f2])
-        out["G"] = np.copy(g)
+        out["G"] = np.column_stack([g1, g2])
 
 
 def get_monotonicity_pattern(x, f, rank):
@@ -201,11 +179,11 @@ if __name__ == '__main__':
         eliminate_duplicates=True,
         callback=record_state
     )
-    save_file = os.path.join('output', f'truss_nsga2_repair_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
     truss_optimizer.repair = MonotonicityRepair()
     if truss_optimizer.repair is not None:
-        save_file = os.path.join('output', f'truss_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+        save_file = os.path.join('output', f'truss_nsga2_repair_0.8pf_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")
         print("Repair operator active")
         print("======================")
