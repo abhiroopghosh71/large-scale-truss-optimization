@@ -66,8 +66,10 @@ class TrussProblem(Problem):
         g2 = np.zeros(n)
 
         # Create a list of coordinate and connectivity matrices for all population members
-        coordinates_list = [None for _ in range(n)]
-        connectivity_list = [None for _ in range(n)]
+        coordinates_list_matlab = [None for _ in range(n)]
+        connectivity_list_matlab = [None for _ in range(n)]
+        coordinates_array = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
+        connectivity_array = np.zeros([n, self.connectivity.shape[0], self.connectivity.shape[1]])
         for i in range(n):
             r = x[i, :260]  # Radius of each element
             z = x[i, 260:]  # Z-coordinate of bottom members
@@ -81,12 +83,14 @@ class TrussProblem(Problem):
             coordinates[10:19, 2] = np.flip(z[:-1])
             coordinates[48:57, 2] = np.flip(z[:-1])
 
-            coordinates_list[i] = matlab.double(coordinates.tolist())
-            connectivity_list[i] = matlab.double(connectivity.tolist())
+            coordinates_list_matlab[i] = matlab.double(coordinates.tolist())
+            connectivity_list_matlab[i] = matlab.double(connectivity.tolist())
+            coordinates_array[i] = coordinates
+            connectivity_array[i] = connectivity
 
         weight_pop, compliance_pop, stress_pop, strain_pop, u_pop, x0_new_pop = \
-            matlab_engine.run_fea_parallel(coordinates_list,
-                                           connectivity_list,
+            matlab_engine.run_fea_parallel(coordinates_list_matlab,
+                                           connectivity_list_matlab,
                                            matlab.double(self.fixed_nodes.tolist()),
                                            matlab.double(self.load_nodes.tolist()),
                                            matlab.double(self.force.tolist()),
@@ -101,6 +105,10 @@ class TrussProblem(Problem):
             g2[i] = matlab_engine.max(matlab_engine.abs(u_pop[i])) - self.max_allowable_displacement
             kwargs['individuals'][i].data['stress'] = np.array(stress_pop[i]).flatten()
             kwargs['individuals'][i].data['strain'] = np.array(strain_pop[i]).flatten()
+            kwargs['individuals'][i].data['u'] = np.array(u_pop[i]).flatten()
+            kwargs['individuals'][i].data['x0_new'] = np.array(x0_new_pop[i])
+            kwargs['individuals'][i].data['coordinates'] = coordinates_array[i]
+            kwargs['individuals'][i].data['connectivity'] = connectivity_array[i]
 
         out["F"] = np.column_stack([f1, f2])
         out["G"] = np.column_stack([g1, g2])
@@ -135,11 +143,16 @@ def record_state(algorithm):
         g1.create_dataset('F', data=f_pop)
 
         num_members = algorithm.pop[0].data['stress'].shape[0]
+        num_nodes = algorithm.pop[0].data['coordinates'].shape[0]
         stress = np.zeros([algorithm.pop_size, num_members])
         strain = np.zeros([algorithm.pop_size, num_members])
+        u = np.zeros([algorithm.pop_size, num_nodes * 6])
+        x0_new = np.zeros([algorithm.pop_size, num_nodes, 3])
         for indx in range(algorithm.pop_size):
             stress[indx, :] = algorithm.pop[indx].data['stress']
             strain[indx, :] = algorithm.pop[indx].data['strain']
+            u[indx, :] = algorithm.pop[indx].data['u']
+            x0_new[indx, :] = algorithm.pop[indx].data['x0_new']
 
         g1.create_dataset('stress', data=stress)
         g1.create_dataset('strain', data=strain)
@@ -169,12 +182,14 @@ def parse_args(args):
 
 
 if __name__ == '__main__':
+    t0 = time.time()
+
     seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     seed = seed_list[0]
 
     problem = TrussProblem()
     truss_optimizer = NSGA2(
-        pop_size=100,
+        pop_size=500,
         # n_offsprings=10,
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
@@ -192,7 +207,7 @@ if __name__ == '__main__':
         print("======================")
 
     os.makedirs(save_file)
-    termination = get_termination("n_gen", 20)
+    termination = get_termination("n_gen", 2000)
 
     res = minimize(problem,
                    truss_optimizer,
@@ -203,8 +218,13 @@ if __name__ == '__main__':
 
     print(res.F)
 
-    np.savetxt('f_max_gen', res.F)
-    np.savetxt('x_max_gen', res.X)
+    matlab_engine.quit()
+
+    np.savetxt(os.path.join(save_file, 'f_max_gen'), res.F)
+    np.savetxt(os.path.join(save_file, 'x_max_gen'), res.X)
+
+    t1 = time.time()
+    print("Total execution time: ", t1 - t0)  # Seconds elapsed
 
     # Plot results
     plt.scatter(res.F[:, 0], res.F[:, 1])
