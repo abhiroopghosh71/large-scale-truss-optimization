@@ -11,16 +11,15 @@ import multiprocessing as mp
 import h5py
 import os
 import time
+import argparse
 
 from truss_repair import MonotonicityRepair
 from obj_eval import calc_obj
 
 
 matlab_engine = matlab.engine.start_matlab()
+matlab_engine.parpool()
 save_file = os.path.join('output', 'truss_optimization_nsga2')
-
-# pool = mp.Pool(processes=4)
-# pool = mp.Pool(mp.cpu_count())
 
 
 class TrussProblem(Problem):
@@ -55,30 +54,6 @@ class TrussProblem(Problem):
                          xl=np.concatenate((0.005 * np.ones(260), -25 * np.ones(10))),
                          xu=np.concatenate((0.100 * np.ones(260), 3.5 * np.ones(10))))
 
-    # def _evaluate(self, x, out, *args, **kwargs):
-    #     n = x.shape[0]
-    #     # f1 = np.zeros(n)
-    #     # f2 = np.zeros(n)
-    #
-    #     coordinates = np.copy(self.coordinates)
-    #     connectivity = np.copy(self.connectivity)
-    #     fixed_nodes = np.copy(self.fixed_nodes)
-    #     load_nodes = np.copy(self.load_nodes)
-    #     force = np.copy(self.force)
-    #
-    #     pool = mp.Pool(mp.cpu_count())
-    #
-    #     results = np.array([pool.apply(calc_obj,
-    #                                    args=(x_indiv, connectivity, coordinates, fixed_nodes, load_nodes, force,
-    #                                          self.density, self.elastic_modulus, matlab_engine)) for x_indiv in x])
-    #     # results = pool.map(calc_obj, [for x_indiv in x])
-    #
-    #     # Step 3: Don't forget to close
-    #     pool.close()
-    #
-    #     out["F"] = np.copy(results)
-    #     # out["G"] = anp.column_stack([g1, g2])
-
     def _evaluate(self, x_in, out, *args, **kwargs):
         x = np.copy(x_in)
         if x.ndim == 1:
@@ -89,15 +64,16 @@ class TrussProblem(Problem):
         f2 = np.zeros(n)
         g1 = np.zeros(n)
         g2 = np.zeros(n)
+
+        # Create a list of coordinate and connectivity matrices for all population members
+        coordinates_list = [None for _ in range(n)]
+        connectivity_list = [None for _ in range(n)]
         for i in range(n):
             r = x[i, :260]  # Radius of each element
             z = x[i, 260:]  # Z-coordinate of bottom members
 
             coordinates = np.copy(self.coordinates)
             connectivity = np.copy(self.connectivity)
-            fixed_nodes = np.copy(self.fixed_nodes)
-            load_nodes = np.copy(self.load_nodes)
-            force = np.copy(self.force)
 
             connectivity[:, 2] = r
             coordinates[0:10, 2] = z
@@ -105,22 +81,26 @@ class TrussProblem(Problem):
             coordinates[10:19, 2] = np.flip(z[:-1])
             coordinates[48:57, 2] = np.flip(z[:-1])
 
-            weight, compliance, stress, strain, u, x0_new =\
-                matlab_engine.run_fea(matlab.double(coordinates.tolist()),
-                                      matlab.double(connectivity.tolist()),
-                                      matlab.double(fixed_nodes.tolist()),
-                                      matlab.double(load_nodes.tolist()),
-                                      matlab.double(force.tolist()),
-                                      matlab.double([self.density]),
-                                      matlab.double([self.elastic_modulus]),
-                                      nargout=6)
+            coordinates_list[i] = matlab.double(coordinates.tolist())
+            connectivity_list[i] = matlab.double(connectivity.tolist())
 
-            f1[i] = weight
-            f2[i] = compliance
-            g1[i] = matlab_engine.max(matlab_engine.abs(stress)) - self.yield_stress
-            g2[i] = matlab_engine.max(matlab_engine.abs(u)) - self.max_allowable_displacement
-            kwargs['individuals'][i].data['stress'] = np.array(stress).flatten()
-            kwargs['individuals'][i].data['strain'] = np.array(strain).flatten()
+        weight_pop, compliance_pop, stress_pop, strain_pop, u_pop, x0_new_pop = \
+            matlab_engine.run_fea_parallel(coordinates_list,
+                                           connectivity_list,
+                                           matlab.double(self.fixed_nodes.tolist()),
+                                           matlab.double(self.load_nodes.tolist()),
+                                           matlab.double(self.force.tolist()),
+                                           matlab.double([self.density]),
+                                           matlab.double([self.elastic_modulus]),
+                                           nargout=6)
+
+        for i in range(n):
+            f1[i] = weight_pop[i][0]
+            f2[i] = compliance_pop[i][0]
+            g1[i] = matlab_engine.max(matlab_engine.abs(stress_pop[i])) - self.yield_stress
+            g2[i] = matlab_engine.max(matlab_engine.abs(u_pop[i])) - self.max_allowable_displacement
+            kwargs['individuals'][i].data['stress'] = np.array(stress_pop[i]).flatten()
+            kwargs['individuals'][i].data['strain'] = np.array(strain_pop[i]).flatten()
 
         out["F"] = np.column_stack([f1, f2])
         out["G"] = np.column_stack([g1, g2])
@@ -165,13 +145,36 @@ def record_state(algorithm):
         g1.create_dataset('strain', data=strain)
 
 
+def parse_args(args):
+    """Defines and parses the command line arguments that can be supplied by the user.
+
+    Args:
+        args (dict): Command line arguments supplied by the user.
+
+    """
+    # Command line args accepted by the program
+    parser = argparse.ArgumentParser(description='Large Scale Truss Design Optimization')
+    parser.add_argument('--seed', type=int, default=184716924, help='Random seed')
+    parser.add_argument('--ngen', type=int, default=200, help='Maximum number of generations')
+    parser.add_argument('--popsize', type=int, default=100, help='Population size')
+    parser.add_argument('--report-freq', type=float, default=10, help='Default logging frequency in generations')
+    parser.add_argument('--repair', action='store_true', default=False, help='Apply custom repair operator')
+    parser.add_argument('--save', type=str, help='Experiment name')
+    parser.add_argument('--crossover', default='real_sbx', help='Choose crossover operator')
+    parser.add_argument('--mutation-eta', default=20, help='Define mutation parameter eta')
+    parser.add_argument('--mutation-prob', default=0.005, help='Define mutation parameter eta')
+    parser.add_argument('--ncores', default=None, help='How many cores to use for parallel evaluator execution')
+
+    return parser.parse_args(args)
+
+
 if __name__ == '__main__':
     seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     seed = seed_list[0]
 
     problem = TrussProblem()
     truss_optimizer = NSGA2(
-        pop_size=10,
+        pop_size=100,
         # n_offsprings=10,
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
@@ -199,6 +202,9 @@ if __name__ == '__main__':
                    verbose=True)
 
     print(res.F)
+
+    np.savetxt('f_max_gen', res.F)
+    np.savetxt('x_max_gen', res.X)
 
     # Plot results
     plt.scatter(res.F[:, 0], res.F[:, 1])
