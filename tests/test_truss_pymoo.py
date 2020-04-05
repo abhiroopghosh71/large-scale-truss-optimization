@@ -13,8 +13,9 @@ import optimize_truss
 def test_truss_optimizer():
     os.chdir('..')
     seed = 184716924
-    save_file = os.path.join('output', f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
-    os.makedirs(save_file)
+    optimize_truss.save_file = os.path.join(os.getcwd(), 'output',
+                                            f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    os.makedirs(optimize_truss.save_file)
     problem = optimize_truss.TrussProblem()
     optimize_truss.matlab_engine.addpath(os.getcwd())
     algorithm = NSGA2(
@@ -23,7 +24,9 @@ def test_truss_optimizer():
         sampling=get_sampling("real_random"),
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
         mutation=get_mutation("real_pm", eta=20),
-        eliminate_duplicates=True
+        eliminate_duplicates=True,
+        # callback=optimize_truss.record_state,
+        # display=optimize_truss.OptimizationDisplay()
     )
 
     termination = get_termination("n_gen", 50)
