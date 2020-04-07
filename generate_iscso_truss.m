@@ -2,8 +2,8 @@ clear
 close all
 
 n_nodes = 19 * 4;
-truss_length = 18*4;
-truss_width = 4;
+truss_length = 18*4;  % in m
+truss_width = 4;  % in m
 density = 7121.4;  % kg/m3
 elastic_modulus = 200e9;  % Pa
 yield_stress = 248.2e6;  % Pa

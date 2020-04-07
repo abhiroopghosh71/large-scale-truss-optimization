@@ -1,5 +1,6 @@
 from pymoo.model.problem import Problem
 import numpy as np
+from scipy.stats import trim_mean
 import matlab
 import matlab.engine
 from pymoo.algorithms.nsga2 import NSGA2
@@ -16,14 +17,14 @@ import argparse
 import sys
 import logging
 import pickle
+import warnings
 
 
-from truss_repair import MonotonicityRepair
+from truss_repair import MonotonicityRepairV1, ParameterlessMonotonicityRepair
 from obj_eval import calc_obj
 
 
 matlab_engine = matlab.engine.start_matlab()
-matlab_engine.parpool()
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
 
@@ -42,10 +43,13 @@ class OptimizationDisplay(Display):
 class TrussProblem(Problem):
 
     def __init__(self):
+        # Truss parameters
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
         self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
+        self.num_shape_vars = 10
+        self.num_size_vars = 260
 
         coordinates_file = 'truss/sample_input/coord_iscso.csv'
         connectivity_file = 'truss/sample_input/connect_iscso.csv'
@@ -59,27 +63,38 @@ class TrussProblem(Problem):
         self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
         self.force = np.loadtxt(force_file, delimiter=',').reshape(-1, 1)
 
-        # For every pair of z-coordinates z1 and z2, store the number of good solutions where z1 >, < or = z2
-        self.z_monotonicity_matrix = np.zeros([3, 10, 10])
-        self.z_avg = np.zeros(10)
-        self.percent_rank_0 = None
+        # Innovization parameters (shape)
+        self.z_avg = -1e16 * np.ones(self.num_shape_vars)
+        self.z_std = -1e16 * np.ones(self.num_shape_vars)
+        self.shape_rule_score = np.zeros(self.num_shape_vars - 1)  # A score given to a rule between 0 and 1
 
-        # self.matlab_engine = matlab.engine.start_matlab()
+        # Innovization parameters (size)
+        # Contains indices of member size decision variables divided into groups. For example, members along the x-axis
+        # on top of the truss are considered a group
+        self.grouped_members = [np.arange(0, 18), np.arange(18, 36), np.arange(36, 54), np.arange(54, 72),
+                                ]
+        self.r_avg = -1e16 * np.ones(self.num_size_vars)
+        self.r_std = -1e16 * np.ones(self.num_size_vars)
+        self.size_rule_score = []  # A score given to a rule between 0 and 1
+        for grp in self.grouped_members:
+            self.size_rule_score.append(np.zeros(len(grp) - 1))
+        self.percent_rank_0 = None
 
         super().__init__(n_var=270,
                          n_obj=2,
                          n_constr=2,
-                         xl=np.concatenate((0.005 * np.ones(260), -25 * np.ones(10))),
-                         xu=np.concatenate((0.100 * np.ones(260), 3.5 * np.ones(10))))
+                         xl=np.concatenate((0.005 * np.ones(self.num_size_vars), -25 * np.ones(self.num_shape_vars))),
+                         xu=np.concatenate((0.100 * np.ones(self.num_size_vars), 3.5 * np.ones(self.num_shape_vars))))
 
     def _evaluate(self, x_in, out, *args, **kwargs):
         x = np.copy(x_in)
         if x.ndim == 1:
             x = x.reshape(1, -1)
 
+        if hasattr(kwargs['algorithm'], 'repair') and kwargs['algorithm'].repair is not None:
+            x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
+
         n = x.shape[0]
-        f1 = np.zeros(n)
-        f2 = np.zeros(n)
         g1 = np.zeros(n)
         g2 = np.zeros(n)
 
@@ -116,24 +131,9 @@ class TrussProblem(Problem):
                                            matlab.double([self.elastic_modulus]),
                                            nargout=6)
 
-        # kwargs['algorithm'].data = {'stress': [None for _ in range(x_in.shape[0])],
-        #                             'strain': [None for _ in range(x_in.shape[0])],
-        #                             'u': [None for _ in range(x_in.shape[0])],
-        #                             'x0_new': [None for _ in range(x_in.shape[0])],
-        #                             'coordinates': [None for _ in range(x_in.shape[0])],
-        #                             'connectivity': [None for _ in range(x_in.shape[0])]
-        #                             }
         for i in range(n):
-            # f1[i] = weight_pop[i][0]
-            # f2[i] = compliance_pop[i][0]
             g1[i] = matlab_engine.max(matlab_engine.abs(stress_pop[i])) - self.yield_stress
             g2[i] = matlab_engine.max(matlab_engine.abs(u_pop[i])) - self.max_allowable_displacement
-            # kwargs['individuals'][i].data['stress'] = np.array(stress_pop[i]).flatten()
-            # kwargs['individuals'][i].data['strain'] = np.array(strain_pop[i]).flatten()
-            # kwargs['individuals'][i].data['u'] = np.array(u_pop[i]).flatten()
-            # kwargs['individuals'][i].data['x0_new'] = np.array(x0_new_pop[i])
-            # kwargs['individuals'][i].data['coordinates'] = coordinates_array[i]
-            # kwargs['individuals'][i].data['connectivity'] = connectivity_array[i]
 
         out['F'] = np.column_stack([np.array(weight_pop), np.array(compliance_pop)])
         out['G'] = np.column_stack([g1, g2])
@@ -145,13 +145,6 @@ class TrussProblem(Problem):
         out['connectivity'] = connectivity_array
 
 
-def get_monotonicity_pattern(x, f, rank):
-    monotonicity_matrix = np.zeros([3, 10, 10])
-    x_non_dominated = x[rank == 0]
-
-    return 0
-
-
 def record_state(algorithm):
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
@@ -160,9 +153,14 @@ def record_state(algorithm):
     cv_pop = algorithm.pop.get('CV')
     # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
 
-    # Calculate avarage z-coordinate across all non-dominated solutions
-    algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
+    if hasattr(algorithm, 'repair') and algorithm.repair is not None:
+        # Calculate avarage z-coordinate across all non-dominated solutions
+        # algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
+        # algorithm.problem.z_std = np.std(x_pop[rank_pop == 0][:, -10:], axis=0)
+        algorithm.repair.learn_rules(algorithm.problem, x_pop[rank_pop == 0])
+
     algorithm.problem.percent_rank_0 = x_pop[rank_pop == 0].shape[0] / x_pop.shape[0]
+
     # TODO: Add max gen to hdf file
     if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0 and (algorithm.n_gen != algorithm.termination.n_max_gen):
         return
@@ -245,6 +243,7 @@ def parse_args(args):
 
 
 def setup_logging(log_file=None):
+    logging.basicConfig(level=logging.DEBUG)
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
 
@@ -256,11 +255,13 @@ def setup_logging(log_file=None):
 
     if log_file is not None:
         fh = logging.FileHandler(log_file)
+        fh.setLevel(logging.DEBUG)
         root.addHandler(fh)
 
 
 if __name__ == '__main__':
     t0 = time.time()
+    matlab_engine.parpool(2)
 
     cmd_args = parse_args(sys.argv[1:])
     # arg_str = f'--ngen 60 --popsize 50 --report-freq 20 --target-thrust baseline --seed 0 --mutation-eta 3 ' \
@@ -284,7 +285,11 @@ if __name__ == '__main__':
     save_folder = os.path.join('output', f'truss_nsga2_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
     if cmd_args.repair:
-        truss_optimizer.repair = MonotonicityRepair()
+        if truss_optimizer.pop_size < 50:
+            warnings.warn("Population size might be too low to learn innovization rules")
+            logging.warning("Population size might be too low to learn innovization rules")
+        # truss_optimizer.repair = MonotonicityRepairV1()
+        truss_optimizer.repair = ParameterlessMonotonicityRepair()
         save_folder = os.path.join('output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")

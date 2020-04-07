@@ -118,8 +118,35 @@ if __name__ == '__main__':
     #               'CP3/TrussResults/' \
     #               '20200326_truss_nsga2_unsupported node/truss_nsga2_repair_0.8pf_seed184716924_20200329-191058/' \
     #               'optimization_history.hdf5'
-
     [x, f, fronts_indx] = get_x_and_f(output_file)
+
+    # HV repair parameterless
+    # output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
+    #               'TrussResults/' \
+    #               '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/' \
+    #               'optimization_history.hdf5'
+    #
+    # x = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
+    #                'TrussResults/'
+    #                '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/x_current_gen')
+    # f = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
+    #                'TrussResults/'
+    #                '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/f_current_gen')
+
+
+    # HV repair parameterless full
+    # output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
+    #               'TrussResults/' \
+    #               '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/' \
+    #               'optimization_history.hdf5'
+    #
+    # x = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
+    #                'TrussResults/'
+    #                '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/x_current_gen')
+    # f = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
+    #                'TrussResults/'
+    #                '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/f_current_gen')
+
     plot_obj(f)
 
     # Plot the min weight and compliance trusses
@@ -132,6 +159,10 @@ if __name__ == '__main__':
                plot_title=f'Min. weight Truss\n'
                           f'Weight = {np.around(f[min_obj_indx[0], 0], decimals=2)} kg, '
                           f'Compliance = {np.around(f[min_obj_indx[0], 1], decimals=2)} m/N')
+    # plot_truss(optimize_truss.matlab_engine, truss_min_weight,
+    #            plot_title=f'Min. weight Truss\n'
+    #                       f'Weight = {np.around(f[14, 0], decimals=2)} kg, '
+    #                       f'Compliance = {np.around(f[14, 1], decimals=2)} m/N')
 
     truss_min_compliance = optimize_truss.TrussProblem()
     convert_x_to_truss_params(x[min_obj_indx[1], :], truss_min_compliance)

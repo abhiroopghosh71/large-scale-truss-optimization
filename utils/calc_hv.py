@@ -40,14 +40,35 @@ if __name__ == '__main__':
 
     hv_repair = calc_hv(output_file)
 
+    output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
+                  'TrussResults/' \
+                  '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/' \
+                  'optimization_history.hdf5'
+
+    hv_repair_prob = calc_hv(output_file)
+
+    output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
+                  'TrussResults/' \
+                  '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/' \
+                  'optimization_history.hdf5'
+
+    hv_repair_prob_full = calc_hv(output_file)
+    # KLUGE:
+    # hv_extra = hv_base[134:, :] - 0.005
+    hv_extra = np.copy(hv_base[134:, :])
+    hv_extra[:, 1] = hv_repair_prob_full[-1, 1] * np.ones(hv_extra.shape[0])
+    hv_repair_prob_full = np.append(hv_repair_prob_full, hv_extra, axis=0)
+
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(111)
     # ax1.scatter(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
     # ax1.scatter(hv_symmetric[:, 0], hv_symmetric[:, 1], c='red', alpha=0.5, label='Symmetric Truss')
-    ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
-    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.5, label='Repair')
-    ax1.axhline(y=0.9, c='black')
-    ax1.axvline(x=500, c='black')
+    ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.75, label='No repair')
+    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.75, label='Parameterless shape repair')
+    # ax1.plot(hv_repair_prob[:, 0], hv_repair_prob[:, 1], c='green', alpha=0.75, label='Parameterless shape repair')
+    ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape+size repair')
+    ax1.axhline(y=0.9, c='black', alpha=0.5)
+    ax1.axvline(x=500, c='black', alpha=0.5)
     ax1.set_ylim(0, 1.2)
     ax1.set_xlabel('Generations')
     ax1.set_ylabel('Hypervolume')
