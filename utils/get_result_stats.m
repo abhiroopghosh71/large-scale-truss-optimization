@@ -1,11 +1,20 @@
 clear
 close all
 
+addpath('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization')
 output_path = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200326_truss_nsga2_unsupported node/';
 % experiment_path = strcat(output_path, 'truss_nsga2_seed184716924_20200324-023902/');
 experiment_path = strcat(output_path, 'truss_nsga2_seed184716924_20200326-001556/');
 F = dlmread(strcat(experiment_path, 'f_max_gen'));
 X = dlmread(strcat(experiment_path, 'x_max_gen'));
+
+%%  3 constraints repair
+% X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233858/x_current_gen');
+% F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233858/f_current_gen');
+
+X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/x_current_gen');
+F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/f_current_gen');
+
 
 coeff_var_X = std(X) ./ mean(X);
 
@@ -86,7 +95,7 @@ draw_truss(coord_1, connect_1, fixed_nodes, load_nodes, force_xyz)
 title(sprintf('Weight (min.) = %f kg    Compliance = %f m/N\n', F(min_F1_indx, 1), F(min_F1_indx, 2)))
 zlim([-30, 20])
 
-% [weight1, compliance1, stress1, strain1, U1, x0_new1] = run_fea(coord_1, connect_1, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+[weight1, compliance1, stress1, strain1, U1, x0_new1] = run_fea(coord_1, connect_1, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
 % draw_truss(x0_new1, connect_1, fixed_nodes, load_nodes, force_xyz)
 % title(sprintf('Deformed Truss Weight (min.) = %f kg    Compliance = %f m/N\n', F(min_F1_indx, 1), F(min_F1_indx, 2)))
 % zlim([-30, 20])
@@ -107,10 +116,33 @@ draw_truss(coord_2, connect_2, fixed_nodes, load_nodes, force_xyz)
 title(sprintf('Weight = %f kg    Compliance (min.) = %f m/N\n', F(min_F2_indx, 1), F(min_F2_indx, 2)))
 zlim([-30, 20])
 
-% [weight2, compliance2, stress2, strain2, U2, x0_new2] = run_fea(coord_2, connect_2, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+[weight2, compliance2, stress2, strain2, U2, x0_new2] = run_fea(coord_2, connect_2, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
 % draw_truss(x0_new2, connect_2, fixed_nodes, load_nodes, force_xyz)
 % title(sprintf('Deformed Truss Weight = %f kg    Compliance (min.) = %f m/N\n', F(min_F2_indx, 1), F(min_F2_indx, 2)))
 zlim([-30, 20])
+
+
+%% shape+size repair 1 obj
+connect_1_obj = connectivity;
+coord_1_obj = coord;
+x_1_obj = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_1obj_nsga2_seed184716924_20200412-190022/x_max_gen');
+% x_1_obj(261:270) = flip(sort(x_1_obj(261:270))');
+x_1_obj(261:270) = [3.2818    1.5603    0.5152    -0.5037    -1.5185    -2.0678    -3.0214    -4.0046   -5.0088   -5.3845];
+connect_1_obj(:, 3) = x_1_obj(1:260);
+connect_1_obj(107, 3) = 0.0152051474452058;
+coord_1_obj(1:10, 3) = x_1_obj(261:270);
+coord_1_obj(39:48, 3) = x_1_obj(261:270);
+coord_1_obj(11:19, 3) = flip(x_1_obj(261:269));
+coord_1_obj(49:57, 3) = flip(x_1_obj(261:269));
+
+[weight_1_obj, compliance_1_obj, stress_1_obj, strain_1_obj, U_1_obj, x0_new_1_obj] = run_fea(coord_1_obj, connect_1_obj, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+
+draw_truss(coord_1_obj, connect_1_obj, fixed_nodes, load_nodes, force_xyz)
+title(sprintf('Weight = %0.2f kg    Compliance = %0.2f m/N\n', weight_1_obj, compliance_1_obj))
+zlim([-30, 20])
+
+
+
 
 %% Correlation analysis
 % figure

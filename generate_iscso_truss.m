@@ -114,9 +114,58 @@ workspace_mat_file = 'truss/sample_input/workspace_iscso.mat';
 % save(workspace_mat_file)
 fprintf("Files not written\n")
 
-draw_truss(coord, connectivity, fixed_nodes, load_nodes, force_xyz)
 [weight, compliance, stress, strain, U, x0_new] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+draw_truss(coord, connectivity, fixed_nodes, load_nodes, force_xyz)
 
+% x0_new_scaled = x0_new;
+% x0_new_scaled(1:19, 3) = x0_new_scaled(1:19, 3) * 1000;
+% x0_new_scaled(39:57, 3) = x0_new_scaled(39:57, 3) * 1000;
+% draw_truss(x0_new_scaled, connectivity, fixed_nodes, load_nodes, force_xyz)
+
+
+%% Test of winning iscso 2019 design
+z = [3500
+1623
+-174
+-1685
+-3019
+-4075
+-4896
+-5552
+-6080
+-6204
+]';
+z = z/1000;
+coord_new = coord;
+coord_new(1:10, 3) = z;
+coord_new(11:19, 3) = flip(z(1:end-1));
+coord_new(39:48, 3) = z;
+coord_new(49:57, 3) = flip(z(1:end-1));
+connec_new = connectivity;
+connec_new(:, 3) = 0.017433732007913;  % Average radius of iscso 2019 winner
+
+[weight_iscso, compliance_iscso, stress_iscso, strain_iscso, U_iscso, x0_new_iscso] = run_fea(coord_new, connec_new, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+
+draw_truss(coord_new, connec_new, fixed_nodes, load_nodes, force_xyz)
+title('ISCSO 2019 winner approx design')
+
+z_inverted = z;
+z_r = z_inverted(1);
+z_max_depth = abs(z_inverted(10) - z_r);
+z_inverted = z_r + abs(z_r - z_inverted) - z_max_depth;
+coord_new_inverted = coord;
+coord_new_inverted(1:10, 3) = z_inverted;
+coord_new_inverted(11:19, 3) = flip(z_inverted(1:end-1));
+coord_new_inverted(39:48, 3) = z_inverted;
+coord_new_inverted(49:57, 3) = flip(z_inverted(1:end-1));
+connec_new_inverted = connectivity;
+connec_new_inverted(:, 3) = 0.017433732007913;  % Average radius of iscso 2019 winner
+
+[weight_iscso_inverted, compliance_iscso_inverted, stress_iscso_inverted, strain_iscso_inverted, U_iscso_inverted, x0_new_iscso_inverted] = ...
+    run_fea(coord_new_inverted, connec_new_inverted, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+
+draw_truss(coord_new_inverted, connec_new_inverted, fixed_nodes, load_nodes, force_xyz)
+title('ISCSO 2019 winner inverted design')
 %% TEST of FEA parallel
 % tic
 % for i=1:500

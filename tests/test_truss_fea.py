@@ -3,6 +3,7 @@ import numpy as np
 import matlab.engine
 import matlab
 import os
+import time
 
 
 def test_truss_evaluator():
@@ -27,14 +28,16 @@ def test_truss_evaluator():
     connectivity = matlab.double(np.loadtxt(connectivity_file, delimiter=',').tolist())
     fixednodes = matlab.double(np.loadtxt(fixednodes_file).reshape(-1, 1).tolist())
     loadn = matlab.double(np.loadtxt(loadn_file).reshape(-1, 1).tolist())
-    force = matlab.double(np.loadtxt(force_file, delimiter=',').reshape(-1, 1).tolist())
+    force = matlab.double(np.loadtxt(force_file, delimiter=',').tolist())
 
     density = matlab.double([7121.4])
     elastic_modulus = matlab.double([200e9])
     # draw_truss(Coordinates, Connectivity, fixednodes, loadn, force)
 
+    t0 = time.time()
     weight, compliance, stress, strain, U, x0_new = eng.run_fea(
         coordinates, connectivity, fixednodes, loadn, force, density, elastic_modulus, nargout=6)
+    print(f"Execution Time = {time.time() - t0} seconds")
 
     print(f"Weight = {weight}")
     print(f"Compliance = {compliance}")

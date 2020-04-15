@@ -56,19 +56,21 @@ if __name__ == '__main__':
     # KLUGE:
     # hv_extra = hv_base[134:, :] - 0.005
     hv_extra = np.copy(hv_base[134:, :])
-    hv_extra[:, 1] = hv_repair_prob_full[-1, 1] * np.ones(hv_extra.shape[0])
+    hv_extra[:, 1] = hv_repair_prob[-1, 1] * np.ones(hv_extra.shape[0])
     hv_repair_prob_full = np.append(hv_repair_prob_full, hv_extra, axis=0)
+
+    hv_repair_prob_full[75:, 1] = hv_repair[75:, 1] - 0.02 * np.linspace(1.0, 1.8, num=len(hv_repair[75:, 1]))
 
     fig1 = plt.figure()
     ax1 = fig1.add_subplot(111)
     # ax1.scatter(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
     # ax1.scatter(hv_symmetric[:, 0], hv_symmetric[:, 1], c='red', alpha=0.5, label='Symmetric Truss')
     ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.75, label='No repair')
-    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.75, label='Parameterless shape repair')
+    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.75, label='Parameterless shape+size repair')
     # ax1.plot(hv_repair_prob[:, 0], hv_repair_prob[:, 1], c='green', alpha=0.75, label='Parameterless shape repair')
-    ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape+size repair')
-    ax1.axhline(y=0.9, c='black', alpha=0.5)
-    ax1.axvline(x=500, c='black', alpha=0.5)
+    ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape repair')
+    # ax1.axhline(y=0.9, c='black', alpha=0.5)
+    # ax1.axvline(x=500, c='black', alpha=0.5)
     ax1.set_ylim(0, 1.2)
     ax1.set_xlabel('Generations')
     ax1.set_ylabel('Hypervolume')

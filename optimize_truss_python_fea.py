@@ -1,8 +1,6 @@
 from pymoo.model.problem import Problem
 import numpy as np
 from scipy.stats import trim_mean
-import matlab
-import matlab.engine
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
@@ -22,9 +20,8 @@ import warnings
 
 from truss_repair import MonotonicityRepairV1, ParameterlessMonotonicityRepair
 from obj_eval import calc_obj
+from run_fea import run_fea
 
-
-matlab_engine = matlab.engine.start_matlab()
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
 
@@ -38,6 +35,8 @@ class OptimizationDisplay(Display):
         f_min_compliance = np.round(f[f[:, 1] == np.min(f[:, 1]), :], decimals=2).flatten()
         self.output.append("Min. weight solution", f_min_weight)
         self.output.append("Min. compliance solution", f_min_compliance)
+        self.output.append("cv(min.)", np.min(algorithm.pop.get('CV')))
+        self.output.append("cv(max.)", np.max(algorithm.pop.get('CV')))
 
 
 class TrussProblem(Problem):
@@ -61,7 +60,9 @@ class TrussProblem(Problem):
         self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
         self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
         self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
-        self.force = np.loadtxt(force_file, delimiter=',').reshape(-1, 1)
+        self.force = np.loadtxt(force_file, delimiter=',')
+
+        print(self.force)
 
         # Innovization parameters (shape)
         self.z_avg = -1e16 * np.ones(self.num_shape_vars)
@@ -80,13 +81,17 @@ class TrussProblem(Problem):
             self.size_rule_score.append(np.zeros(len(grp) - 1))
         self.percent_rank_0 = None
 
+        # TODO: Make n_constr a user parameter
         super().__init__(n_var=270,
                          n_obj=2,
                          n_constr=2,
                          xl=np.concatenate((0.005 * np.ones(self.num_size_vars), -25 * np.ones(self.num_shape_vars))),
                          xu=np.concatenate((0.100 * np.ones(self.num_size_vars), 3.5 * np.ones(self.num_shape_vars))))
 
+        print(f"Number of constraints = {self.n_constr}")
+
     def _evaluate(self, x_in, out, *args, **kwargs):
+        # TODO: Parallelize obj eval
         x = np.copy(x_in)
         if x.ndim == 1:
             x = x.reshape(1, -1)
@@ -95,14 +100,21 @@ class TrussProblem(Problem):
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
         n = x.shape[0]
+        f1 = np.zeros(n)
+        f2 = np.zeros(n)
         g1 = np.zeros(n)
         g2 = np.zeros(n)
+        g3 = np.zeros(n)
 
         # Create a list of coordinate and connectivity matrices for all population members
-        coordinates_list_matlab = [None for _ in range(n)]
-        connectivity_list_matlab = [None for _ in range(n)]
+        coordinates_list = [None for _ in range(n)]
+        connectivity_list = [None for _ in range(n)]
         coordinates_array = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
         connectivity_array = np.zeros([n, self.connectivity.shape[0], self.connectivity.shape[1]])
+        stress_pop = np.zeros([n, self.connectivity.shape[0]])
+        strain_pop = np.zeros([n, self.connectivity.shape[0]])
+        u_pop = np.zeros([n, 6 * self.coordinates.shape[0]])
+        x0_new_pop = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
         for i in range(n):
             r = x[i, :260]  # Radius of each element
             z = x[i, 260:]  # Z-coordinate of bottom members
@@ -116,33 +128,46 @@ class TrussProblem(Problem):
             coordinates[10:19, 2] = np.flip(z[:-1])
             coordinates[48:57, 2] = np.flip(z[:-1])
 
-            coordinates_list_matlab[i] = matlab.double(coordinates.tolist())
-            connectivity_list_matlab[i] = matlab.double(connectivity.tolist())
             coordinates_array[i] = coordinates
             connectivity_array[i] = connectivity
 
-        weight_pop, compliance_pop, stress_pop, strain_pop, u_pop, x0_new_pop = \
-            matlab_engine.run_fea_parallel(coordinates_list_matlab,
-                                           connectivity_list_matlab,
-                                           matlab.double(self.fixed_nodes.tolist()),
-                                           matlab.double(self.load_nodes.tolist()),
-                                           matlab.double(self.force.tolist()),
-                                           matlab.double([self.density]),
-                                           matlab.double([self.elastic_modulus]),
-                                           nargout=6)
+            weight, compliance, stress, strain, u, x0_new =\
+                run_fea(coordinates,
+                        connectivity,
+                        self.fixed_nodes,
+                        self.load_nodes,
+                        self.force,
+                        self.density,
+                        self.elastic_modulus)
+            f1[i] = weight
+            f2[i] = compliance
 
-        for i in range(n):
-            g1[i] = matlab_engine.max(matlab_engine.abs(stress_pop[i])) - self.yield_stress
-            g2[i] = matlab_engine.max(matlab_engine.abs(u_pop[i])) - self.max_allowable_displacement
+            g1[i] = np.max(np.abs(stress)) - self.yield_stress
+            g2[i] = np.max(np.abs(u)) - self.max_allowable_displacement
+            del_coord = np.array(x0_new) - coordinates
+            if np.max(del_coord[:, 2]) > 0:
+                g3[i] = np.max(del_coord[:, 2])
+            else:
+                g3[i] = -1
 
-        out['F'] = np.column_stack([np.array(weight_pop), np.array(compliance_pop)])
-        out['G'] = np.column_stack([g1, g2])
-        out['stress'] = np.array(stress_pop)
-        out['strain'] = np.array(strain_pop)
-        out['u'] = np.array(u_pop)
-        out['x0_new'] = np.array(x0_new_pop)
+            stress_pop[i, :] = np.copy(stress)
+            strain_pop[i, :] = np.copy(strain)
+            u_pop[i, :] = np.copy(u)
+            x0_new_pop[i, :, :] = np.copy(x0_new)
+
+        out['stress'] = np.copy(stress_pop)
+        out['strain'] = np.copy(strain_pop)
+        out['u'] = np.copy(u_pop)
+        out['x0_new'] = np.copy(x0_new_pop)
         out['coordinates'] = coordinates_array
         out['connectivity'] = connectivity_array
+
+        out['F'] = np.column_stack([f1, f2])
+        # out['F'] = np.column_stack([np.array(weight_pop), np.max(out['stress'], axis=1)])
+        if self.n_constr == 2:
+            out['G'] = np.column_stack([g1, g2])
+        elif self.n_constr == 3:
+            out['G'] = np.column_stack([g1, g2, g3])
 
 
 def record_state(algorithm):
@@ -261,7 +286,6 @@ def setup_logging(log_file=None):
 
 if __name__ == '__main__':
     t0 = time.time()
-    matlab_engine.parpool(2)
 
     cmd_args = parse_args(sys.argv[1:])
     # arg_str = f'--ngen 60 --popsize 50 --report-freq 20 --target-thrust baseline --seed 0 --mutation-eta 3 ' \
@@ -314,8 +338,6 @@ if __name__ == '__main__':
                    verbose=True)
 
     print(res.F)
-
-    matlab_engine.quit()
 
     # Save results
     # For final PF

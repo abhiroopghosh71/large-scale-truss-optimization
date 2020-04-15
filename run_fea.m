@@ -64,8 +64,8 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
 
 %     xmin= min(x');
 %     xmax= max(x');
-    xmin= min(x, 1);
-    xmax= max(x, 1);
+    xmin= min(x, [], 1);
+    xmax= max(x, [], 1);
     eps=norm(xmax-xmin)*1e-5;
     %     fixednodes=find(abs(x(1,:)-min(x(1,:)))<eps);
     fixednodes = fixednodes';
@@ -129,12 +129,15 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
     
     % Deformation of nodes for every dof
     U=zeros(neq,1);
+%     sk_full = full(sk);
     U(freedofs,:)=sk(freedofs,freedofs)\F(freedofs,:);
     if any(isnan(U))
         compliance = 10000;
     else
         compliance=0;
         compliance = compliance +U(:,1)'*F(:,1);
+%         compliance = compliance +abs(U(:,1))'*abs(F(:,1)));
+%         compliance = compliance + nansum(abs(U(:, 1) ./ F(:, 1)));
     end
     final_volume = sum(lengths.*areas);
 
@@ -238,6 +241,7 @@ function [weight, compliance, stress, strain, U, x0_new] = run_fea(Coordinates, 
             reshape(areas(nel)*skA(:,nel),12,12)+...
             reshape(torsionJ(nel)*skT(:,nel),12,12);
     end   % end of assembly
+%     s = full(sk);
     end
 
     %==========================================================================

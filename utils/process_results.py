@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matlab
 import matlab.engine
 
-import optimize_truss
+import optimize_truss_matlab_fea
 
 
 def get_x_and_f(out_file_path):
@@ -84,14 +84,14 @@ def convert_x_to_truss_params(x_pop, truss):
     truss.coordinates[48:57, 2] = np.flip(z[:-1])
 
     weight, compliance, stress, strain, u, x0_new = \
-        optimize_truss.matlab_engine.run_fea(matlab.double(truss.coordinates.tolist()),
-                              matlab.double(truss.connectivity.tolist()),
-                              matlab.double(truss.fixed_nodes.tolist()),
-                              matlab.double(truss.load_nodes.tolist()),
-                              matlab.double(truss.force.tolist()),
-                              matlab.double([truss.density]),
-                              matlab.double([truss.elastic_modulus]),
-                              nargout=6)
+        optimize_truss_matlab_fea.matlab_engine.run_fea(matlab.double(truss.coordinates.tolist()),
+                                                        matlab.double(truss.connectivity.tolist()),
+                                                        matlab.double(truss.fixed_nodes.tolist()),
+                                                        matlab.double(truss.load_nodes.tolist()),
+                                                        matlab.double(truss.force.tolist()),
+                                                        matlab.double([truss.density]),
+                                                        matlab.double([truss.elastic_modulus]),
+                                                        nargout=6)
     return truss
 
 
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     # MATLAB powers through a Python individual. Note, however, that any external divine power takes longer to charge.
     # So in combat situations requiring quick response times, this might put you at a disadvantage.
     # matlab_engine = matlab.engine.start_matlab()
-    optimize_truss.matlab_engine.addpath(
+    optimize_truss_matlab_fea.matlab_engine.addpath(
         r'/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
         r'iscso_based_truss_optimization/large_scale_truss_optimization', nargout=0)
 
@@ -153,9 +153,9 @@ if __name__ == '__main__':
     min_obj = np.min(f, axis=0)
     min_obj_indx = np.argmin(f, axis=0)
 
-    truss_min_weight = optimize_truss.TrussProblem()
+    truss_min_weight = optimize_truss_matlab_fea.TrussProblem()
     convert_x_to_truss_params(x[min_obj_indx[0], :], truss_min_weight)
-    plot_truss(optimize_truss.matlab_engine, truss_min_weight,
+    plot_truss(optimize_truss_matlab_fea.matlab_engine, truss_min_weight,
                plot_title=f'Min. weight Truss\n'
                           f'Weight = {np.around(f[min_obj_indx[0], 0], decimals=2)} kg, '
                           f'Compliance = {np.around(f[min_obj_indx[0], 1], decimals=2)} m/N')
@@ -164,9 +164,9 @@ if __name__ == '__main__':
     #                       f'Weight = {np.around(f[14, 0], decimals=2)} kg, '
     #                       f'Compliance = {np.around(f[14, 1], decimals=2)} m/N')
 
-    truss_min_compliance = optimize_truss.TrussProblem()
+    truss_min_compliance = optimize_truss_matlab_fea.TrussProblem()
     convert_x_to_truss_params(x[min_obj_indx[1], :], truss_min_compliance)
-    plot_truss(optimize_truss.matlab_engine, truss_min_compliance,
+    plot_truss(optimize_truss_matlab_fea.matlab_engine, truss_min_compliance,
                plot_title='Min. compliance\n'
                           f'Weight = {np.around(f[min_obj_indx[1], 0], decimals=2)} kg, '
                           f'Compliance = {np.around(f[min_obj_indx[1], 1], decimals=2)} m/N')
