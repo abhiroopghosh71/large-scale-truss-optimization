@@ -90,6 +90,32 @@ class TrussProblem(Problem):
 
         print(f"Number of constraints = {self.n_constr}")
 
+
+    @staticmethod
+    def calc_obj(i, x, coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus,
+                 yield_stress, max_allowable_displacement, structure_type='truss'):
+        r = x[:260]  # Radius of each element
+        z = x[260:]  # Z-coordinate of bottom members
+
+        connectivity[:, 2] = r
+        coordinates[0:10, 2] = z
+        coordinates[38:48, 2] = z
+        coordinates[10:19, 2] = np.flip(z[:-1])
+        coordinates[48:57, 2] = np.flip(z[:-1])
+
+        weight, compliance, stress, strain, u, x0_new = run_fea(coordinates, connectivity, fixed_nodes,
+                                                                load_nodes, force, density,
+                                                                elastic_modulus, structure_type=structure_type)
+        del_x = x0_new - coordinates
+
+        f = np.array([weight, compliance])
+        # f2 = np.max(np.abs(del_x[:, 2]))
+
+        g = np.array([np.max(np.abs(stress)) - yield_stress, np.max(np.abs(u)) - max_allowable_displacement])
+        del_coord = np.array(x0_new) - coordinates
+
+        return i, f, g, stress, strain, u, x0_new, coordinates, connectivity
+
     def _evaluate(self, x_in, out, *args, **kwargs):
         # TODO: Parallelize obj eval
         x = np.copy(x_in)
@@ -107,65 +133,53 @@ class TrussProblem(Problem):
         g3 = np.zeros(n)
 
         # Create a list of coordinate and connectivity matrices for all population members
-        coordinates_list = [None for _ in range(n)]
-        connectivity_list = [None for _ in range(n)]
-        coordinates_array = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
-        connectivity_array = np.zeros([n, self.connectivity.shape[0], self.connectivity.shape[1]])
-        stress_pop = np.zeros([n, self.connectivity.shape[0]])
-        strain_pop = np.zeros([n, self.connectivity.shape[0]])
-        u_pop = np.zeros([n, 6 * self.coordinates.shape[0]])
-        x0_new_pop = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
-        for i in range(n):
-            r = x[i, :260]  # Radius of each element
-            z = x[i, 260:]  # Z-coordinate of bottom members
+        # coordinates_list = [None for _ in range(n)]
+        # connectivity_list = [None for _ in range(n)]
+        # coordinates_array = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
+        # connectivity_array = np.zeros([n, self.connectivity.shape[0], self.connectivity.shape[1]])
+        # stress_pop = np.zeros([n, self.connectivity.shape[0]])
+        # strain_pop = np.zeros([n, self.connectivity.shape[0]])
+        # u_pop = np.zeros([n, 6 * self.coordinates.shape[0]])
+        # x0_new_pop = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
 
-            coordinates = np.copy(self.coordinates)
-            connectivity = np.copy(self.connectivity)
+        pool = mp.Pool(mp.cpu_count())
 
-            connectivity[:, 2] = r
-            coordinates[0:10, 2] = z
-            coordinates[38:48, 2] = z
-            coordinates[10:19, 2] = np.flip(z[:-1])
-            coordinates[48:57, 2] = np.flip(z[:-1])
+        results = []
 
-            coordinates_array[i] = coordinates
-            connectivity_array[i] = connectivity
+        # call apply_async() without callback
+        result_objects = [pool.apply_async(TrussProblem.calc_obj, args=(i, row, np.copy(self.coordinates),
+                                                                        np.copy(self.connectivity), self.fixed_nodes,
+                                                                        self.load_nodes, self.force,
+                                                                        self.density, self.elastic_modulus,
+                                                                        self.yield_stress,
+                                                                        self.max_allowable_displacement,
+                                                                        'truss'))
+                          for i, row in enumerate(x)]
 
-            weight, compliance, stress, strain, u, x0_new = run_fea(coordinates, connectivity, self.fixed_nodes,
-                                                                    self.load_nodes, self.force, self.density,
-                                                                    self.elastic_modulus, structure_type='truss')
-            del_x = x0_new - coordinates
+        pool.close()
+        pool.join()
+        # print(results[:10])
 
-            f1[i] = weight
-            f2[i] = compliance
-            # f2[i] = np.max(np.abs(del_x[:, 2]))
+        # result_objects is a list of pool.ApplyResult objects
+        results = [r.get() for r in result_objects]
+        results.sort(key=lambda r: r[0])
 
-            g1[i] = np.max(np.abs(stress)) - self.yield_stress
-            g2[i] = np.max(np.abs(u)) - self.max_allowable_displacement
-            del_coord = np.array(x0_new) - coordinates
-            if np.max(del_coord[:, 2]) > 0:
-                g3[i] = np.max(del_coord[:, 2])
-            else:
-                g3[i] = -1
+        out['F'] = np.array([[r[1][0], r[1][1]] for r in results])
+        out['G'] = np.array([[r[2][0], r[2][1]] for r in results])
 
-            stress_pop[i, :] = np.copy(stress)
-            strain_pop[i, :] = np.copy(strain)
-            u_pop[i, :] = np.copy(u)
-            x0_new_pop[i, :, :] = np.copy(x0_new)
+        out['stress'] = np.array([r[3] for r in results])
+        out['strain'] = np.array([r[4] for r in results])
+        out['u'] = np.array([r[5] for r in results])
+        out['x0_new'] = np.array([r[6] for r in results])
+        out['coordinates'] = np.array([r[7] for r in results])
+        out['connectivity'] = np.array([r[8] for r in results])
 
-        out['stress'] = np.copy(stress_pop)
-        out['strain'] = np.copy(strain_pop)
-        out['u'] = np.copy(u_pop)
-        out['x0_new'] = np.copy(x0_new_pop)
-        out['coordinates'] = coordinates_array
-        out['connectivity'] = connectivity_array
-
-        out['F'] = np.column_stack([f1, f2])
-        # out['F'] = np.column_stack([np.array(weight_pop), np.max(out['stress'], axis=1)])
-        if self.n_constr == 2:
-            out['G'] = np.column_stack([g1, g2])
-        elif self.n_constr == 3:
-            out['G'] = np.column_stack([g1, g2, g3])
+        # out['F'] = np.column_stack([f1, f2])
+        # # out['F'] = np.column_stack([np.array(weight_pop), np.max(out['stress'], axis=1)])
+        # if self.n_constr == 2:
+        #     out['G'] = np.column_stack([g1, g2])
+        # elif self.n_constr == 3:
+        #     out['G'] = np.column_stack([g1, g2, g3])
 
 
 def record_state(algorithm):
@@ -304,7 +318,7 @@ if __name__ == '__main__':
         display=OptimizationDisplay()
     )
 
-    save_folder = os.path.join('output', f'truss_nsga2_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    save_folder = os.path.join('output', f'truss_nsga2_parallel_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
     if cmd_args.repair:
         if truss_optimizer.pop_size < 50:

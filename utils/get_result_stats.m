@@ -5,16 +5,17 @@ addpath('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/R
 output_path = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200326_truss_nsga2_unsupported node/';
 % experiment_path = strcat(output_path, 'truss_nsga2_seed184716924_20200324-023902/');
 experiment_path = strcat(output_path, 'truss_nsga2_seed184716924_20200326-001556/');
-F = dlmread(strcat(experiment_path, 'f_max_gen'));
-X = dlmread(strcat(experiment_path, 'x_max_gen'));
+% F = dlmread(strcat(experiment_path, 'f_max_gen'));
+% X = dlmread(strcat(experiment_path, 'x_max_gen'));
 
 %%  3 constraints repair
 % X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233858/x_current_gen');
 % F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233858/f_current_gen');
 
-X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/x_current_gen');
-F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/f_current_gen');
-
+% X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/x_current_gen');
+% F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/iscso_based_truss_optimization/large_scale_truss_optimization/output/truss_nsga2_seed184716924_20200413-233948/f_current_gen');
+X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_nsga2_force_z_20200414-225500/x_max_gen');
+F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_nsga2_force_z_20200414-225500/f_max_gen');
 
 coeff_var_X = std(X) ./ mean(X);
 
@@ -70,7 +71,7 @@ connect_1 = connectivity;
 coord_1 = coord;
 
 [min_F1, min_F1_indx] = min(F(:, 1));
-
+% min_F1_indx = 492;
 xreal1 = X(min_F1_indx, :);
 % REMOVE THIS!!
 % fixed_nodes = [fixed_nodes; 20; 38; 58; 76];

@@ -5,27 +5,23 @@
 import numpy as np
 
 
-def run_fea(Coordinates, Connectivity, fixednodes, loadn, force, density, elastic_modulus):
-    
-    #    strtype = 'frame'
-    # TODO: make strtype a param
-    strtype = 'truss'
+def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus, structure_type='truss'):
 
-    preXr = Coordinates
+    preXr = coordinates
     Xr = np.transpose(preXr)
-    preconnec0 = (Connectivity[:, :2] - 1).astype(int)
+    preconnec0 = (connectivity[:, :2] - 1).astype(int)
     connec0 = np.transpose(preconnec0)
     numel0 = connec0.shape[1]
     nx = Xr.shape[1]
 
     x0 = Xr[:3, :]
-    R = np.transpose(Connectivity[:, 2])
+    R = np.transpose(connectivity[:, 2])
 
-    RadiusNEL = np.zeros([numel0, 1])
+    radius_nel = np.zeros([numel0, 1])
     lengths = np.zeros([numel0, 1])
     for nel in range(numel0):
         nodes = np.transpose(connec0[:, nel])
-        RadiusNEL[nel, 0] = R[nel]
+        radius_nel[nel, 0] = R[nel]
         xnel = x0[:, nodes]
         dx = xnel[0, 1] - xnel[0, 0]
         dy = xnel[1, 1] - xnel[1, 0]
@@ -60,31 +56,31 @@ def run_fea(Coordinates, Connectivity, fixednodes, loadn, force, density, elasti
     xmax= np.max(x, axis=0)
     eps = np.linalg.norm(xmax - xmin) * 1e-5
     #     fixednodes=find(abs(x(1,:)-min(x(1,:)))<eps)
-    fixednodes = (fixednodes - 1).reshape(1, -1).astype(int)
-    fixeddof = np.ones([fixednodes.shape[1], 6])
+    fixed_nodes = (fixed_nodes - 1).reshape(1, -1).astype(int)
+    fixeddof = np.ones([fixed_nodes.shape[1], 6])
 
     # ==========================================================================
     # f truss, remove rotations
     # ==========================================================================
-    if strtype == 'truss':
+    if structure_type == 'truss':
         tmp = np.tile(np.array([0, 0, 0, 1, 1, 1]), (numnodes, 1))
         fixeddof = np.append(fixeddof, tmp, axis=0)
-        fixednodes = np.append(fixednodes, np.arange(0, numnodes)).reshape(1, -1).astype(int)
+        fixed_nodes = np.append(fixed_nodes, np.arange(0, numnodes)).reshape(1, -1).astype(int)
 
-    freedofs, fixeq = setbc(numnodes, ndf, fixednodes, fixeddof)
+    freedofs, fixeq = setbc(numnodes, ndf, fixed_nodes, fixeddof)
 
 
-    loadn = np.transpose(loadn).astype(int)
+    load_nodes = np.transpose(load_nodes).astype(int)
 
-    nFx = 6 * (loadn - 1)
-    nFy = 6 * (loadn - 1) + 1
-    nFz = 6 * (loadn - 1) + 2
+    nFx = 6 * (load_nodes - 1)
+    nFy = 6 * (load_nodes - 1) + 1
+    nFz = 6 * (load_nodes - 1) + 2
 
     elastimod = elastic_modulus * np.ones([1, numel])  #   MPa  N/mm^2
     shearmod = elastimod / (2 * (1 + 0.33))
 
     skBy, skBz, skA, skT = buildKBeamLatticeUnscaled(numel, x, connec, elastimod, shearmod)
-    if strtype == 'truss':
+    if structure_type == 'truss':
         skBy = np.zeros(skBy.shape)
         skBz = np.zeros(skBz.shape)
         skT = np.zeros(skT.shape)
@@ -93,12 +89,12 @@ def run_fea(Coordinates, Connectivity, fixednodes, loadn, force, density, elasti
     #  precompute   loads
     # ==========================================================================
     F = np.zeros([neq, 1])
-    F[nFx, 0] = Fx0 / loadn.shape[1]
+    F[nFx, 0] = Fx0 / load_nodes.shape[1]
     #     F(nFx2,1)=Fx2/length(loadn2)
-    F[nFy, 0] = Fy0 / loadn.shape[1]
-    F[nFz, 0] = Fz0 / loadn.shape[1]
+    F[nFy, 0] = Fy0 / load_nodes.shape[1]
+    F[nFz, 0] = Fz0 / load_nodes.shape[1]
 
-    xval =  2 * RadiusNEL
+    xval =  2 * radius_nel
 
     areas = np.pi * xval * xval / 4
     bendingIZ = np.pi * xval ** 4 / 64
