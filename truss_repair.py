@@ -35,15 +35,15 @@ class MonotonicityRepairV1(Repair):
 
         z_avg = problem.z_avg  # The average shape in previous good solutions
 
-        z_xl = problem.xl[-10:]
-        z_xu = problem.xu[-10:]
+        z_xl = problem.xl[-problem.num_shape_vars:]
+        z_xu = problem.xu[-problem.num_shape_vars:]
 
         for i in range(x.shape[0]):
             # Repair with a certain probability
             if np.random.rand() < self.repair_probability:
                 continue
 
-            z = x[i, -10:]
+            z = x[i, -problem.num_shape_vars:]
             z_repaired = np.copy(z)  # Repaired z-coordinates of the offspring
 
             for j in range(len(z) - 1):
@@ -66,7 +66,7 @@ class MonotonicityRepairV1(Repair):
                     diff = np.abs(z_repaired[j] - z_repaired[j + 1])
                     z_repaired[j + 1] = np.maximum(z_repaired[j] - diff, z_xl[j + 1])
 
-            x_repaired[i, -10:] = z_repaired  # Set the repaired z-coordinates for the offspring
+            x_repaired[i, -problem.num_shape_vars:] = z_repaired  # Set the repaired z-coordinates for the offspring
 
         logger.info("Repair complete")
 
@@ -117,7 +117,7 @@ class ParameterlessMonotonicityRepair(Repair):
                             and (curr_sol_z_i[sol_indx] > curr_sol_z_i_plus_1[sol_indx])):
                     problem.shape_rule_score[indx] += 1
 
-        problem.shape_rule_score /= z.shape[0]  # Proportion of solutions following a rule
+        problem.shape_rule_score = problem.shape_rule_score / z.shape[0]  # Proportion of solutions following a rule
 
         # Monotonic relations between shape variables
         r_avg = np.mean(r, axis=0)
@@ -160,7 +160,7 @@ class ParameterlessMonotonicityRepair(Repair):
     def _do(self, problem, x, **kwargs):
         """Perform repair on offsprings according to previously learned rules."""
         # Do repair every 10 generations and after at least 20 generations have been done
-        if kwargs['algorithm'].n_gen % 10 != 0 or problem.percent_rank_0 < 0:
+        if kwargs['algorithm'].n_gen % 10 != 0 or problem.percent_rank_0 < 0.8:
             return x
 
         print("========================================")

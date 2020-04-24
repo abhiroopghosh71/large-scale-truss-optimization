@@ -12,7 +12,7 @@ connectivity = [];
 % load_nodes = [1; 39; 19; 57];
 % fixed_nodes = [1; 19; 20; 38; 39; 57; 58; 76];
 % fixed_nodes = [20; 38; 58; 76];
-fixed_nodes = [1; 19; 39; 57];
+fixed_nodes = [1; 19; 39; 57];  
 
 % Add all unsupported nodes as load nodes
 load_nodes = [];
@@ -115,7 +115,18 @@ workspace_mat_file = 'truss/sample_input/workspace_iscso.mat';
 fprintf("Files not written\n")
 
 [weight, compliance, stress, strain, U, x0_new] = run_fea(coord, connectivity, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
+% Uncomment if needed to draw a representative truss
+% coord(1:19, 3) = -5;
+% coord(39:57, 3) = -5;
+% connectivity(:, 3) = 0.5;
+% for ii = 1:19
+%     annotation('arrow',coord(ii, ,Y);
+% end
+
 draw_truss(coord, connectivity, fixed_nodes, load_nodes, force_xyz)
+xlim([-5, 75])
+ylim([-0.5, 10])
+zlim([-27, 5])
 
 % x0_new_scaled = x0_new;
 % x0_new_scaled(1:19, 3) = x0_new_scaled(1:19, 3) * 1000;

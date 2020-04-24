@@ -21,6 +21,7 @@ import warnings
 from truss_repair import MonotonicityRepairV1, ParameterlessMonotonicityRepair
 from obj_eval import calc_obj
 from run_fea import run_fea
+from utils.generate_truss import gen_truss
 
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
@@ -41,27 +42,36 @@ class OptimizationDisplay(Display):
 
 class TrussProblem(Problem):
 
-    def __init__(self):
+    def __init__(self, num_shape_vars=10):
         # Truss parameters
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
         self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
-        self.num_shape_vars = 10
-        self.num_size_vars = 260
+        self.num_shape_vars = num_shape_vars
 
         coordinates_file = 'truss/sample_input/coord_iscso.csv'
         connectivity_file = 'truss/sample_input/connect_iscso.csv'
         fixednodes_file = 'truss/sample_input/fixn_iscso.csv'
         loadn_file = 'truss/sample_input/loadn_iscso.csv'
-        force_file = 'truss/sample_input/force_iscso_z.csv'
+        force_file = 'truss/sample_input/force_iscso.csv'
 
-        self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
-        self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
-        self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
-        self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
-        self.force = np.loadtxt(force_file, delimiter=',')
+        # self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
+        # self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
+        # self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
+        # self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
+        # self.load_nodes = np.array(np.append(np.arange(2, 19), np.arange(40, 57))).reshape(-1, 1)
+        # # self.load_nodes = np.array([[10], [48]])
+        # warnings.warn(f"Load nodes changed by user!! {self.load_nodes}")
+        # self.force = np.loadtxt(force_file, delimiter=',')
+        self.force = np.array([0, 0, -5000])
 
+        self.coordinates, self.connectivity, self.fixed_nodes, self.load_nodes = gen_truss(n_shape_nodes=2*self.num_shape_vars - 1)
+        self.num_size_vars = self.connectivity.shape[0]
+        self.fixed_nodes = self.fixed_nodes.reshape(-1, 1)
+        self.load_nodes = self.load_nodes.reshape(-1, 1)
+
+        print(f"No. of shape vars = {self.num_shape_vars}")
         print(self.force)
 
         # Innovization parameters (shape)
@@ -72,7 +82,12 @@ class TrussProblem(Problem):
         # Innovization parameters (size)
         # Contains indices of member size decision variables divided into groups. For example, members along the x-axis
         # on top of the truss are considered a group
-        self.grouped_members = [np.arange(0, 18), np.arange(18, 36), np.arange(36, 54), np.arange(54, 72),
+        # self.grouped_members = [np.arange(0, 18), np.arange(18, 36), np.arange(36, 54), np.arange(54, 72),
+        #                         ]
+        self.grouped_members = [np.arange(0, 2*self.num_shape_vars - 2),
+                                np.arange(2*self.num_shape_vars - 2, 4*self.num_shape_vars - 4),
+                                np.arange(4*self.num_shape_vars - 4, 6*self.num_shape_vars - 6),
+                                np.arange(6*self.num_shape_vars - 6, 8*self.num_shape_vars - 8),
                                 ]
         self.r_avg = -1e16 * np.ones(self.num_size_vars)
         self.r_std = -1e16 * np.ones(self.num_size_vars)
@@ -82,7 +97,7 @@ class TrussProblem(Problem):
         self.percent_rank_0 = None
 
         # TODO: Make n_constr a user parameter
-        super().__init__(n_var=270,
+        super().__init__(n_var=self.num_shape_vars + self.num_size_vars,
                          n_obj=2,
                          n_constr=2,
                          xl=np.concatenate((0.005 * np.ones(self.num_size_vars), -25 * np.ones(self.num_shape_vars))),
@@ -90,20 +105,24 @@ class TrussProblem(Problem):
 
         print(f"Number of constraints = {self.n_constr}")
 
-
     @staticmethod
     def calc_obj(i, x, coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus,
-                 yield_stress, max_allowable_displacement, structure_type='truss'):
-        r = x[:260]  # Radius of each element
-        z = x[260:]  # Z-coordinate of bottom members
+                 yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
+        r = np.copy(x[:-num_shape_vars])  # Radius of each element
+        z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
 
         connectivity[:, 2] = r
-        coordinates[0:10, 2] = z
-        coordinates[38:48, 2] = z
-        coordinates[10:19, 2] = np.flip(z[:-1])
-        coordinates[48:57, 2] = np.flip(z[:-1])
+        # coordinates[0:10, 2] = z
+        # coordinates[38:48, 2] = z
+        # coordinates[10:19, 2] = np.flip(z[:-1])
+        # coordinates[48:57, 2] = np.flip(z[:-1])
+        coordinates[0:num_shape_vars, 2] = z
+        coordinates[(2*num_shape_vars - 1) * 2:(2*num_shape_vars - 1) * 2 + num_shape_vars, 2] = z
+        coordinates[num_shape_vars:2*num_shape_vars - 1, 2] = np.flip(z[:-1])
+        coordinates[(2*num_shape_vars - 1) * 2 + num_shape_vars:(2*num_shape_vars - 1) * 2 + 2*num_shape_vars - 1, 2] = np.flip(z[:-1])
 
-        weight, compliance, stress, strain, u, x0_new = run_fea(coordinates, connectivity, fixed_nodes,
+        weight, compliance, stress, strain, u, x0_new = run_fea(np.copy(coordinates),
+                                                                np.copy(connectivity), fixed_nodes,
                                                                 load_nodes, force, density,
                                                                 elastic_modulus, structure_type=structure_type)
         del_x = x0_new - coordinates
@@ -111,8 +130,12 @@ class TrussProblem(Problem):
         f = np.array([weight, compliance])
         # f2 = np.max(np.abs(del_x[:, 2]))
 
-        g = np.array([np.max(np.abs(stress)) - yield_stress, np.max(np.abs(u)) - max_allowable_displacement])
         del_coord = np.array(x0_new) - coordinates
+        if np.max(del_coord[:, 2]) > 0:
+            g3 = np.max(del_coord[:, 2])
+        else:
+            g3 = -1
+        g = np.array([np.max(np.abs(stress)) - yield_stress, np.max(np.abs(u)) - max_allowable_displacement])
 
         return i, f, g, stress, strain, u, x0_new, coordinates, connectivity
 
@@ -126,23 +149,8 @@ class TrussProblem(Problem):
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
         n = x.shape[0]
-        f1 = np.zeros(n)
-        f2 = np.zeros(n)
-        g1 = np.zeros(n)
-        g2 = np.zeros(n)
-        g3 = np.zeros(n)
 
-        # Create a list of coordinate and connectivity matrices for all population members
-        # coordinates_list = [None for _ in range(n)]
-        # connectivity_list = [None for _ in range(n)]
-        # coordinates_array = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
-        # connectivity_array = np.zeros([n, self.connectivity.shape[0], self.connectivity.shape[1]])
-        # stress_pop = np.zeros([n, self.connectivity.shape[0]])
-        # strain_pop = np.zeros([n, self.connectivity.shape[0]])
-        # u_pop = np.zeros([n, 6 * self.coordinates.shape[0]])
-        # x0_new_pop = np.zeros([n, self.coordinates.shape[0], self.coordinates.shape[1]])
-
-        pool = mp.Pool(mp.cpu_count())
+        pool = mp.Pool(mp.cpu_count() // 4)
 
         results = []
 
@@ -153,19 +161,22 @@ class TrussProblem(Problem):
                                                                         self.density, self.elastic_modulus,
                                                                         self.yield_stress,
                                                                         self.max_allowable_displacement,
+                                                                        self.num_shape_vars,
                                                                         'truss'))
                           for i, row in enumerate(x)]
 
         pool.close()
         pool.join()
-        # print(results[:10])
 
         # result_objects is a list of pool.ApplyResult objects
         results = [r.get() for r in result_objects]
         results.sort(key=lambda r: r[0])
 
         out['F'] = np.array([[r[1][0], r[1][1]] for r in results])
+
         out['G'] = np.array([[r[2][0], r[2][1]] for r in results])
+        # out['G'] = np.array([[r[2][0], r[2][1], r[2][2]] for r in results])
+        # out['G'] = np.array([r[2][0] for r in results])
 
         out['stress'] = np.array([r[3] for r in results])
         out['strain'] = np.array([r[4] for r in results])
@@ -174,27 +185,25 @@ class TrussProblem(Problem):
         out['coordinates'] = np.array([r[7] for r in results])
         out['connectivity'] = np.array([r[8] for r in results])
 
-        # out['F'] = np.column_stack([f1, f2])
-        # # out['F'] = np.column_stack([np.array(weight_pop), np.max(out['stress'], axis=1)])
-        # if self.n_constr == 2:
-        #     out['G'] = np.column_stack([g1, g2])
-        # elif self.n_constr == 3:
-        #     out['G'] = np.column_stack([g1, g2, g3])
-
 
 def record_state(algorithm):
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
     rank_pop = algorithm.pop.get('rank')
-    g_pop = algorithm.pop.get('G')
-    cv_pop = algorithm.pop.get('CV')
+
+    if algorithm.problem.n_constr > 0:
+        g_pop = algorithm.pop.get('G')
+        cv_pop = algorithm.pop.get('CV')
     # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
 
     if hasattr(algorithm, 'repair') and algorithm.repair is not None:
         # Calculate avarage z-coordinate across all non-dominated solutions
         # algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
         # algorithm.problem.z_std = np.std(x_pop[rank_pop == 0][:, -10:], axis=0)
-        algorithm.repair.learn_rules(algorithm.problem, x_pop[rank_pop == 0])
+        if rank_pop[0] == np.inf:
+            algorithm.repair.learn_rules(algorithm.problem, x_pop)
+        else:
+            algorithm.repair.learn_rules(algorithm.problem, x_pop[rank_pop == 0])
 
     algorithm.problem.percent_rank_0 = x_pop[rank_pop == 0].shape[0] / x_pop.shape[0]
 
@@ -212,8 +221,9 @@ def record_state(algorithm):
         g1.create_dataset('X', data=x_pop)
         g1.create_dataset('F', data=f_pop)
         g1.create_dataset('rank', data=rank_pop)
-        g1.create_dataset('G', data=g_pop)
-        g1.create_dataset('CV', data=cv_pop)
+        if algorithm.problem.n_constr > 0:
+            g1.create_dataset('G', data=g_pop)
+            g1.create_dataset('CV', data=cv_pop)
 
         num_members = algorithm.pop[0].data['stress'].shape[0]
         num_nodes = algorithm.pop[0].data['coordinates'].shape[0]
@@ -239,8 +249,9 @@ def record_state(algorithm):
         # np.savetxt(os.path.join(save_folder, 'cv_current_gen'), cv_pop[rank_pop == 0])
         np.savetxt(os.path.join(save_folder, 'f_pop_current_gen'), f_pop)
         np.savetxt(os.path.join(save_folder, 'x_pop_current_gen'), x_pop)
-        np.savetxt(os.path.join(save_folder, 'g_pop_current_gen'), g_pop)
-        np.savetxt(os.path.join(save_folder, 'cv_pop_current_gen'), cv_pop)
+        if algorithm.problem.n_constr > 0:
+            np.savetxt(os.path.join(save_folder, 'g_pop_current_gen'), g_pop)
+            np.savetxt(os.path.join(save_folder, 'cv_pop_current_gen'), cv_pop)
         np.savetxt(os.path.join(save_folder, 'rank_pop_current_gen'), rank_pop)
         np.savetxt(os.path.join(save_folder, 'stress_pop_current_gen'), stress_pop)
         np.savetxt(os.path.join(save_folder, 'strain_pop_current_gen'), strain_pop)
@@ -258,6 +269,9 @@ def parse_args(args):
     """
     # Command line args accepted by the program
     parser = argparse.ArgumentParser(description='Large Scale Truss Design Optimization')
+
+    # Truss parameters
+    parser.add_argument('--nshapevar', type=int, default=10, help='Random seed')
 
     # Optimization parameters
     parser.add_argument('--seed', type=int, default=184716924, help='Random seed')
@@ -307,12 +321,12 @@ if __name__ == '__main__':
     # seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     # seed = seed_list[0]
 
-    truss_problem = TrussProblem()
+    truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar)
     truss_optimizer = NSGA2(
         pop_size=cmd_args.popsize,
         sampling=get_sampling("real_random"),
-        crossover=get_crossover("real_sbx", prob=0.9, eta=30),
-        mutation=get_mutation("real_pm", eta=20),
+        crossover=get_crossover("real_sbx", prob=0.9, eta=3),
+        mutation=get_mutation("real_pm", eta=3),
         eliminate_duplicates=True,
         callback=record_state,
         display=OptimizationDisplay()
@@ -355,14 +369,16 @@ if __name__ == '__main__':
     # For final PF
     np.savetxt(os.path.join(save_folder, 'f_max_gen'), res.F)
     np.savetxt(os.path.join(save_folder, 'x_max_gen'), res.X)
-    np.savetxt(os.path.join(save_folder, 'g_max_gen'), res.G)
-    np.savetxt(os.path.join(save_folder, 'cv_max_gen'), res.CV)
+    if truss_problem.n_constr > 0:
+        np.savetxt(os.path.join(save_folder, 'g_max_gen'), res.G)
+        np.savetxt(os.path.join(save_folder, 'cv_max_gen'), res.CV)
 
     # For final pop
     np.savetxt(os.path.join(save_folder, 'f_pop_max_gen'), res.pop.get('F'))
     np.savetxt(os.path.join(save_folder, 'x_pop_max_gen'), res.pop.get('X'))
-    np.savetxt(os.path.join(save_folder, 'g_pop_max_gen'), res.pop.get('G'))
-    np.savetxt(os.path.join(save_folder, 'cv_pop_max_gen'), res.pop.get('CV'))
+    if truss_problem.n_constr > 0:
+        np.savetxt(os.path.join(save_folder, 'g_pop_max_gen'), res.pop.get('G'))
+        np.savetxt(os.path.join(save_folder, 'cv_pop_max_gen'), res.pop.get('CV'))
     np.savetxt(os.path.join(save_folder, 'rank_pop_max_gen'), res.pop.get('rank'))
 
     # Additional data for final pop

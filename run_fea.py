@@ -5,7 +5,8 @@
 import numpy as np
 
 
-def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus, structure_type='truss'):
+def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus,
+            structure_type='truss'):
 
     preXr = coordinates
     Xr = np.transpose(preXr)
@@ -15,12 +16,12 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
     nx = Xr.shape[1]
 
     x0 = Xr[:3, :]
-    R = np.transpose(connectivity[:, 2])
+    R = connectivity[:, 2]
 
     radius_nel = np.zeros([numel0, 1])
     lengths = np.zeros([numel0, 1])
     for nel in range(numel0):
-        nodes = np.transpose(connec0[:, nel])
+        nodes = connec0[:, nel]
         radius_nel[nel, 0] = R[nel]
         xnel = x0[:, nodes]
         dx = xnel[0, 1] - xnel[0, 0]
@@ -39,8 +40,8 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
     ndf = 6
     numnodes = x.shape[1]
     neq = numnodes * ndf
-    tdofs = np.transpose(np.array([np.arange(1, neq, 6), np.arange(2, neq, 6), np.arange(3, neq, 6)]))
-    tdofs = np.transpose(tdofs).reshape(3 * numnodes, 1)
+    # tdofs = np.array([np.arange(1, neq, 6), np.arange(2, neq, 6), np.arange(3, neq, 6)]).reshape(3 * numnodes, 1)
+    # tdofs = np.transpose(tdofs).reshape(3 * numnodes, 1)
 
     #==========================================================================
     # Boundary Conditions: Fixed nodes and dof
@@ -52,9 +53,9 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
 
 #     xmin= min(x')
 #     xmax= max(x')
-    xmin= np.min(x, axis=0)
-    xmax= np.max(x, axis=0)
-    eps = np.linalg.norm(xmax - xmin) * 1e-5
+    xmin = np.min(x, axis=0)
+    xmax = np.max(x, axis=0)
+    # eps = np.linalg.norm(xmax - xmin) * 1e-5
     #     fixednodes=find(abs(x(1,:)-min(x(1,:)))<eps)
     fixed_nodes = (fixed_nodes - 1).reshape(1, -1).astype(int)
     fixeddof = np.ones([fixed_nodes.shape[1], 6])
@@ -69,14 +70,13 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
 
     freedofs, fixeq = setbc(numnodes, ndf, fixed_nodes, fixeddof)
 
-
     load_nodes = np.transpose(load_nodes).astype(int)
 
     nFx = 6 * (load_nodes - 1)
     nFy = 6 * (load_nodes - 1) + 1
     nFz = 6 * (load_nodes - 1) + 2
 
-    elastimod = elastic_modulus * np.ones([1, numel])  #   MPa  N/mm^2
+    elastimod = elastic_modulus * np.ones([1, numel])
     shearmod = elastimod / (2 * (1 + 0.33))
 
     skBy, skBz, skA, skT = buildKBeamLatticeUnscaled(numel, x, connec, elastimod, shearmod)
@@ -94,7 +94,7 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
     F[nFy, 0] = Fy0 / load_nodes.shape[1]
     F[nFz, 0] = Fz0 / load_nodes.shape[1]
 
-    xval =  2 * radius_nel
+    xval = 2 * radius_nel
 
     areas = np.pi * xval * xval / 4
     bendingIZ = np.pi * xval ** 4 / 64
@@ -121,7 +121,7 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
 #     end
     # TODO: Make compliance metric selectable by the user
     compliance = np.sum(U[:, 0] * F[:, 0])
-#     compliance = np.sum(np.abs(U[:, 0] * F[:, 0]))
+    # compliance = np.sum(np.abs(U[:, 0] * F[:, 0]))
     final_volume = np.sum(lengths * areas)
 
 #     csvwrite(final_compliance_file_name,compliance)
@@ -134,6 +134,7 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
     for ii in range(nx):
         x0_new[0:3, ii] = x0[0:3, ii] + U[6 * ii:6*ii + 3]
 
+    # x0_new[0:3, np.arange(0, nx)] = x0[0:3, np.arange(0, nx)] + U[6 * np.arange(0, nx):6*np.arange(0, nx) + 3]
 #     x0_new(1:3, 1:nx) = x0(1:3, 1:nx) + U(6 * (1:nx-1) + 1: 6 * (1:nx-1) + 3)
     
     new_lengths = np.zeros([numel, 1])
@@ -141,7 +142,7 @@ def run_fea(coordinates, connectivity, fixed_nodes, load_nodes, force, density, 
     stress = np.zeros([numel, 1])
     # Get the new lengths of members from the connectivity matrix connec0
     for ii in range(numel0):
-        elem_nodes = np.transpose(connec0[:, ii])
+        elem_nodes = connec0[:, ii]
         new_lengths[ii] = np.linalg.norm(x0_new[:, elem_nodes[0]] - x0_new[:, elem_nodes[1]])
         strain[ii] = (new_lengths[ii] - lengths[ii]) / lengths[ii]
         stress[ii] = elastic_modulus * strain[ii]
@@ -263,7 +264,6 @@ def buildKBeamLatticeUnscaled(numel, x, connec, elastimod, shearmod):
         skA[:, nel] = (np.matmul(np.matmul(np.transpose(rot12), kaxial), rot12)).reshape(144,)
         skT[:, nel] = (np.matmul(np.matmul(np.transpose(rot12), ktorsion), rot12)).reshape(144,)
         #     rotArray(:,nel)=reshape(rot12,144,1)
-
 
     return skBy, skBz, skA, skT
 
