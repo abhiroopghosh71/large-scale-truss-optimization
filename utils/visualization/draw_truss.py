@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.generate_truss import gen_truss
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.markers import MarkerStyle
 
@@ -20,9 +19,9 @@ def draw_truss(node_coordinates, element_connectivity, fixed_nodes, load_nodes):
 
     # Plot elements
     for nodes in element_connectivity:
-        ax1.plot([coordinates[int(nodes[0] - 1), 0], coordinates[int(nodes[1] - 1), 0]],
-                 [coordinates[int(nodes[0] - 1), 1], coordinates[int(nodes[1] - 1), 1]],
-                 [coordinates[int(nodes[0] - 1), 2], coordinates[int(nodes[1] - 1), 2]], c='k')
+        ax1.plot([node_coordinates[int(nodes[0] - 1), 0], node_coordinates[int(nodes[1] - 1), 0]],
+                 [node_coordinates[int(nodes[0] - 1), 1], node_coordinates[int(nodes[1] - 1), 1]],
+                 [node_coordinates[int(nodes[0] - 1), 2], node_coordinates[int(nodes[1] - 1), 2]], c='k')
 
     ax1.set_xlabel('x', fontsize=10)
     ax1.set_ylabel('y', fontsize=10)
@@ -33,6 +32,7 @@ def draw_truss(node_coordinates, element_connectivity, fixed_nodes, load_nodes):
 
 
 if __name__ == '__main__':
+    from utils.generate_truss import gen_truss
     # coordinates, connectivity, fixed_nodes, load_nodes = gen_truss()
     # draw_truss(coordinates, connectivity, fixed_nodes, load_nodes)
     #
@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     # For truss_20_xyz - 20 shape var, 3 force
     num_shape_vars = 20
-    coordinates, connectivity, fixed_nodes, load_nodes = gen_truss(n_shape_nodes=num_shape_vars*2 -1)
+    node_coordinates, connectivity, fixed_nodes, load_nodes = gen_truss(n_shape_nodes=num_shape_vars * 2 - 1)
     # x = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
     #                'TrussResults/truss_z_only_20200419/truss_20_xyz/x_max_gen')
     # f = np.loadtxt('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/'
@@ -68,10 +68,10 @@ if __name__ == '__main__':
     # coordinates[38:48, 2] = z
     # coordinates[10:19, 2] = np.flip(z[:-1])
     # coordinates[48:57, 2] = np.flip(z[:-1])
-    coordinates[0:num_shape_vars, 2] = z
-    coordinates[(2*num_shape_vars - 1) * 2:(2*num_shape_vars - 1) * 2 + num_shape_vars, 2] = z
-    coordinates[num_shape_vars:2*num_shape_vars - 1, 2] = np.flip(z[:-1])
-    coordinates[(2*num_shape_vars - 1) * 2 + num_shape_vars:(2*num_shape_vars - 1) * 2 + 2*num_shape_vars - 1, 2] = np.flip(z[:-1])
-    draw_truss(coordinates, connectivity, fixed_nodes, load_nodes)
+    node_coordinates[0:num_shape_vars, 2] = z
+    node_coordinates[(2 * num_shape_vars - 1) * 2:(2 * num_shape_vars - 1) * 2 + num_shape_vars, 2] = z
+    node_coordinates[num_shape_vars:2 * num_shape_vars - 1, 2] = np.flip(z[:-1])
+    node_coordinates[(2 * num_shape_vars - 1) * 2 + num_shape_vars:(2 * num_shape_vars - 1) * 2 + 2 * num_shape_vars - 1, 2] = np.flip(z[:-1])
+    draw_truss(node_coordinates, connectivity, fixed_nodes, load_nodes)
 
     plt.show()

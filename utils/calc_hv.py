@@ -31,40 +31,40 @@ if __name__ == '__main__':
                   '20200326_truss_nsga2_unsupported node/truss_nsga2_seed184716924_20200326-001556/' \
                   'optimization_history.hdf5'
 
-    hv_base = calc_hv(output_file)
+    hv_base = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([50000, 50]))
 
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
                   'TrussResults/' \
                   '20200326_truss_nsga2_unsupported node/truss_nsga2_repair_0.8pf_seed184716924_20200329-191058/' \
                   'optimization_history.hdf5'
 
-    hv_repair = calc_hv(output_file)
+    hv_repair = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([50000, 50]))
 
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
                   'TrussResults/' \
                   '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/' \
                   'optimization_history.hdf5'
 
-    hv_repair_prob = calc_hv(output_file)
+    hv_repair_prob = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([50000, 200]))
 
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
                   'TrussResults/' \
                   '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/' \
                   'optimization_history.hdf5'
 
-    hv_repair_prob_full = calc_hv(output_file)
+    hv_repair_prob_full = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([100000, 200]))
 
-    f_min_point = np.array([0, 0])
-    f_max_point = np.array([300000, 200])
+    # f_min_point = np.array([0, 0])
+    # f_max_point = np.array([300000, 200])
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
                   'TrussResults/truss_z_only_20200419/truss_20_xyz/optimization_history.hdf5'
 
-    hv_20_xyz = calc_hv(output_file, f_min_point=f_min_point, f_max_point=f_max_point)
+    hv_20_xyz = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([200000, 500]))
 
     output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
                   'TrussResults/truss_z_only_20200419/truss_20_xyz_repair/optimization_history.hdf5'
 
-    hv_repair_20_xyz = calc_hv(output_file, f_min_point=f_min_point, f_max_point=f_max_point)
+    hv_repair_20_xyz = calc_hv(output_file, f_min_point=np.array([0, 0]), f_max_point=np.array([200000, 500]))
     #KLUGE:
     hv_20_xyz[:, 0] = (hv_20_xyz[:, 0] - np.min(hv_20_xyz[:, 0])) / (np.max(hv_20_xyz[:, 0]) - np.min(hv_20_xyz[:, 0])) * 2000
     hv_repair_20_xyz[:, 0] = (hv_repair_20_xyz[:, 0] - np.min(hv_repair_20_xyz[:, 0])) / (np.max(hv_repair_20_xyz[:, 0]) - np.min(hv_repair_20_xyz[:, 0])) * 2000
@@ -82,19 +82,33 @@ if __name__ == '__main__':
     # ax1.scatter(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.5, label='Base optimization')
     # ax1.scatter(hv_symmetric[:, 0], hv_symmetric[:, 1], c='red', alpha=0.5, label='Symmetric Truss')
 
-    # ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.75, label='No repair')
-    # ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.75, label='Parameterless shape+size repair')
+    ax1.plot(hv_base[:, 0], hv_base[:, 1], c='blue', alpha=0.75, label='Base NSGA-II')
+    ax1.plot(hv_repair[:, 0], hv_repair[:, 1], c='red', alpha=0.75, label='Innovization-based NSGA-II')
+    # ax1.plot(hv_base[:, 0]*500, hv_base[:, 1], c='blue', alpha=0.75, label='Base NSGA-II')
+    # ax1.plot(hv_repair[:, 0]*500, hv_repair[:, 1], c='red', alpha=0.75, label='Innovization-based NSGA-II')
+    # ax1.set_title('10 shapevar asymmetric size')
+    ax1.grid()
+    ax1.legend()
+    ax1.set_xlabel("Function Evaluations")
+    ax1.set_ylabel("Convergence Metric (Hypervolume)")
+    ax1.set_ylim([0, 1.4])
+    # np.savetxt('hv_10_asymm', hv_base)
+    # np.savetxt('hv_10_asymm_repair', hv_repair)
     # ax1.plot(hv_repair_prob[:, 0], hv_repair_prob[:, 1], c='green', alpha=0.75, label='Parameterless shape repair')
     # ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape repair')
 
     # For xyz 20 var base vs repair
-    ax1.plot(hv_repair_20_xyz[:, 0], hv_repair_20_xyz[:, 1], c='red', alpha=0.75, label='No repair')
-    ax1.plot(hv_20_xyz[:, 0], hv_20_xyz[:, 1], c='blue', alpha=0.75, label='With repair')
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(111)
+    ax2.plot(hv_repair_20_xyz[:, 0], hv_repair_20_xyz[:, 1], c='red', alpha=0.75, label='No repair')
+    ax2.plot(hv_20_xyz[:, 0], hv_20_xyz[:, 1], c='blue', alpha=0.75, label='With repair')
+    ax2.set_title('20 shapevar asymmetric size')
 
     # ax1.axhline(y=0.9, c='black', alpha=0.5)
     # ax1.axvline(x=500, c='black', alpha=0.5)
-    ax1.set_ylim(0, 1.2)
-    ax1.set_xlabel('Generations')
-    ax1.set_ylabel('Hypervolume')
-    ax1.legend()
-    ax1.grid()
+    ax2.set_ylim(0, 1.2)
+    ax2.set_xlabel('Generations')
+    ax2.set_ylabel('Hypervolume')
+    ax2.legend()
+    ax2.grid()
+    ax2.set_ylim([0, 1.4])

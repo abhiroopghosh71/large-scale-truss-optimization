@@ -135,6 +135,8 @@ zlim([-27, 5])
 
 
 %% Test of winning iscso 2019 design
+force_xyz = [0, 0, -5000];
+load_nodes = [20:38, 58:76]';
 z = [3500
 1623
 -174
@@ -156,7 +158,7 @@ connec_new = connectivity;
 connec_new(:, 3) = 0.017433732007913;  % Average radius of iscso 2019 winner
 
 [weight_iscso, compliance_iscso, stress_iscso, strain_iscso, U_iscso, x0_new_iscso] = run_fea(coord_new, connec_new, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
-
+del_x_iscso = (x0_new_iscso - coord_new);
 draw_truss(coord_new, connec_new, fixed_nodes, load_nodes, force_xyz)
 title('ISCSO 2019 winner approx design')
 
@@ -174,7 +176,7 @@ connec_new_inverted(:, 3) = 0.017433732007913;  % Average radius of iscso 2019 w
 
 [weight_iscso_inverted, compliance_iscso_inverted, stress_iscso_inverted, strain_iscso_inverted, U_iscso_inverted, x0_new_iscso_inverted] = ...
     run_fea(coord_new_inverted, connec_new_inverted, fixed_nodes, load_nodes, force_xyz, density, elastic_modulus);
-
+del_x_iscso_inverted = (x0_new_iscso_inverted - coord_new_inverted);
 draw_truss(coord_new_inverted, connec_new_inverted, fixed_nodes, load_nodes, force_xyz)
 title('ISCSO 2019 winner inverted design')
 %% TEST of FEA parallel

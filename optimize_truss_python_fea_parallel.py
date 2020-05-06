@@ -1,11 +1,8 @@
-from pymoo.model.problem import Problem
 import numpy as np
-from scipy.stats import trim_mean
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 from pymoo.util.display import Display
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import h5py
@@ -18,10 +15,9 @@ import pickle
 import warnings
 
 
-from truss_repair import MonotonicityRepairV1, ParameterlessMonotonicityRepair
-from obj_eval import calc_obj
-from run_fea import run_fea
-from utils.generate_truss import gen_truss
+from truss_repair import ParameterlessInequalityRepair
+from truss import TrussProblem
+from truss_symmetric import TrussProblemSymmetric
 
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
@@ -39,151 +35,13 @@ class OptimizationDisplay(Display):
         self.output.append("cv(min.)", np.min(algorithm.pop.get('CV')))
         self.output.append("cv(max.)", np.max(algorithm.pop.get('CV')))
 
-
-class TrussProblem(Problem):
-
-    def __init__(self, num_shape_vars=10):
-        # Truss parameters
-        self.density = 7121.4  # kg/m3
-        self.elastic_modulus = 200e9  # Pa
-        self.yield_stress = 248.2e6  # Pa
-        self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
-        self.num_shape_vars = num_shape_vars
-
-        coordinates_file = 'truss/sample_input/coord_iscso.csv'
-        connectivity_file = 'truss/sample_input/connect_iscso.csv'
-        fixednodes_file = 'truss/sample_input/fixn_iscso.csv'
-        loadn_file = 'truss/sample_input/loadn_iscso.csv'
-        force_file = 'truss/sample_input/force_iscso.csv'
-
-        # self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
-        # self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
-        # self.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
-        # self.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
-        # self.load_nodes = np.array(np.append(np.arange(2, 19), np.arange(40, 57))).reshape(-1, 1)
-        # # self.load_nodes = np.array([[10], [48]])
-        # warnings.warn(f"Load nodes changed by user!! {self.load_nodes}")
-        # self.force = np.loadtxt(force_file, delimiter=',')
-        self.force = np.array([0, 0, -5000])
-
-        self.coordinates, self.connectivity, self.fixed_nodes, self.load_nodes = gen_truss(n_shape_nodes=2*self.num_shape_vars - 1)
-        self.num_size_vars = self.connectivity.shape[0]
-        self.fixed_nodes = self.fixed_nodes.reshape(-1, 1)
-        self.load_nodes = self.load_nodes.reshape(-1, 1)
-
-        print(f"No. of shape vars = {self.num_shape_vars}")
-        print(self.force)
-
-        # Innovization parameters (shape)
-        self.z_avg = -1e16 * np.ones(self.num_shape_vars)
-        self.z_std = -1e16 * np.ones(self.num_shape_vars)
-        self.shape_rule_score = np.zeros(self.num_shape_vars - 1)  # A score given to a rule between 0 and 1
-
-        # Innovization parameters (size)
-        # Contains indices of member size decision variables divided into groups. For example, members along the x-axis
-        # on top of the truss are considered a group
-        # self.grouped_members = [np.arange(0, 18), np.arange(18, 36), np.arange(36, 54), np.arange(54, 72),
-        #                         ]
-        self.grouped_members = [np.arange(0, 2*self.num_shape_vars - 2),
-                                np.arange(2*self.num_shape_vars - 2, 4*self.num_shape_vars - 4),
-                                np.arange(4*self.num_shape_vars - 4, 6*self.num_shape_vars - 6),
-                                np.arange(6*self.num_shape_vars - 6, 8*self.num_shape_vars - 8),
-                                ]
-        self.r_avg = -1e16 * np.ones(self.num_size_vars)
-        self.r_std = -1e16 * np.ones(self.num_size_vars)
-        self.size_rule_score = []  # A score given to a rule between 0 and 1
-        for grp in self.grouped_members:
-            self.size_rule_score.append(np.zeros(len(grp) - 1))
-        self.percent_rank_0 = None
-
-        # TODO: Make n_constr a user parameter
-        super().__init__(n_var=self.num_shape_vars + self.num_size_vars,
-                         n_obj=2,
-                         n_constr=2,
-                         xl=np.concatenate((0.005 * np.ones(self.num_size_vars), -25 * np.ones(self.num_shape_vars))),
-                         xu=np.concatenate((0.100 * np.ones(self.num_size_vars), 3.5 * np.ones(self.num_shape_vars))))
-
-        print(f"Number of constraints = {self.n_constr}")
-
-    @staticmethod
-    def calc_obj(i, x, coordinates, connectivity, fixed_nodes, load_nodes, force, density, elastic_modulus,
-                 yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
-        r = np.copy(x[:-num_shape_vars])  # Radius of each element
-        z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
-
-        connectivity[:, 2] = r
-        # coordinates[0:10, 2] = z
-        # coordinates[38:48, 2] = z
-        # coordinates[10:19, 2] = np.flip(z[:-1])
-        # coordinates[48:57, 2] = np.flip(z[:-1])
-        coordinates[0:num_shape_vars, 2] = z
-        coordinates[(2*num_shape_vars - 1) * 2:(2*num_shape_vars - 1) * 2 + num_shape_vars, 2] = z
-        coordinates[num_shape_vars:2*num_shape_vars - 1, 2] = np.flip(z[:-1])
-        coordinates[(2*num_shape_vars - 1) * 2 + num_shape_vars:(2*num_shape_vars - 1) * 2 + 2*num_shape_vars - 1, 2] = np.flip(z[:-1])
-
-        weight, compliance, stress, strain, u, x0_new = run_fea(np.copy(coordinates),
-                                                                np.copy(connectivity), fixed_nodes,
-                                                                load_nodes, force, density,
-                                                                elastic_modulus, structure_type=structure_type)
-        del_x = x0_new - coordinates
-
-        f = np.array([weight, compliance])
-        # f2 = np.max(np.abs(del_x[:, 2]))
-
-        del_coord = np.array(x0_new) - coordinates
-        if np.max(del_coord[:, 2]) > 0:
-            g3 = np.max(del_coord[:, 2])
-        else:
-            g3 = -1
-        g = np.array([np.max(np.abs(stress)) - yield_stress, np.max(np.abs(u)) - max_allowable_displacement])
-
-        return i, f, g, stress, strain, u, x0_new, coordinates, connectivity
-
-    def _evaluate(self, x_in, out, *args, **kwargs):
-        # TODO: Parallelize obj eval
-        x = np.copy(x_in)
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-
-        if hasattr(kwargs['algorithm'], 'repair') and kwargs['algorithm'].repair is not None:
-            x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
-
-        n = x.shape[0]
-
-        pool = mp.Pool(mp.cpu_count() // 4)
-
-        results = []
-
-        # call apply_async() without callback
-        result_objects = [pool.apply_async(TrussProblem.calc_obj, args=(i, row, np.copy(self.coordinates),
-                                                                        np.copy(self.connectivity), self.fixed_nodes,
-                                                                        self.load_nodes, self.force,
-                                                                        self.density, self.elastic_modulus,
-                                                                        self.yield_stress,
-                                                                        self.max_allowable_displacement,
-                                                                        self.num_shape_vars,
-                                                                        'truss'))
-                          for i, row in enumerate(x)]
-
-        pool.close()
-        pool.join()
-
-        # result_objects is a list of pool.ApplyResult objects
-        results = [r.get() for r in result_objects]
-        results.sort(key=lambda r: r[0])
-
-        out['F'] = np.array([[r[1][0], r[1][1]] for r in results])
-
-        out['G'] = np.array([[r[2][0], r[2][1]] for r in results])
-        # out['G'] = np.array([[r[2][0], r[2][1], r[2][2]] for r in results])
-        # out['G'] = np.array([r[2][0] for r in results])
-
-        out['stress'] = np.array([r[3] for r in results])
-        out['strain'] = np.array([r[4] for r in results])
-        out['u'] = np.array([r[5] for r in results])
-        out['x0_new'] = np.array([r[6] for r in results])
-        out['coordinates'] = np.array([r[7] for r in results])
-        out['connectivity'] = np.array([r[8] for r in results])
+        logging.info("===============================================================================================")
+        logging.info("n_gen |  n_eval | Min. weight solution      | Min. compliance solution      |   cv(min.)   |   "
+                     "cv(max.)  ")
+        logging.info(f"{algorithm.n_gen}    | {algorithm.n_gen * algorithm.pop_size}      | "
+                     f"{f_min_weight} | {f_min_compliance} |   {np.min(algorithm.pop.get('CV'))}   |   "
+                     f"{np.max(algorithm.pop.get('CV'))}  ")
+        logging.info("===============================================================================================")
 
 
 def record_state(algorithm):
@@ -198,8 +56,6 @@ def record_state(algorithm):
 
     if hasattr(algorithm, 'repair') and algorithm.repair is not None:
         # Calculate avarage z-coordinate across all non-dominated solutions
-        # algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
-        # algorithm.problem.z_std = np.std(x_pop[rank_pop == 0][:, -10:], axis=0)
         if rank_pop[0] == np.inf:
             algorithm.repair.learn_rules(algorithm.problem, x_pop)
         else:
@@ -212,12 +68,8 @@ def record_state(algorithm):
         return
 
     with h5py.File(os.path.join(save_folder, 'optimization_history.hdf5'), 'a') as hf:
-        # if algorithm.n_gen == 1:
-        #     hf.create_dataset('max_gen', data=algorithm.max_gen)
         g1 = hf.create_group(f'gen{algorithm.n_gen}')
 
-        # for p in range(algorithm.pop_size):
-        # g2 = g1.create_group(f'sol{p + 1}')
         g1.create_dataset('X', data=x_pop)
         g1.create_dataset('F', data=f_pop)
         g1.create_dataset('rank', data=rank_pop)
@@ -231,33 +83,76 @@ def record_state(algorithm):
         strain_pop = np.zeros([algorithm.pop_size, num_members])
         u_pop = np.zeros([algorithm.pop_size, num_nodes * 6])
         x0_new_pop = np.zeros([algorithm.pop_size, num_nodes, 3])
+        coordinates_pop = np.zeros([algorithm.pop_size, num_nodes, 3])
+        connectivity_pop = np.zeros([algorithm.pop_size, num_members, 3])
         for indx in range(algorithm.pop_size):
             stress_pop[indx, :] = algorithm.pop[indx].data['stress'].reshape(1, -1)
             strain_pop[indx, :] = algorithm.pop[indx].data['strain'].reshape(1, -1)
             u_pop[indx, :] = algorithm.pop[indx].data['u'].reshape(1, -1)
             x0_new_pop[indx, :, :] = algorithm.pop[indx].data['x0_new']
+            coordinates_pop[indx, :] = algorithm.pop[indx].data['coordinates']
+            connectivity_pop[indx, :] = algorithm.pop[indx].data['connectivity']
 
         g1.create_dataset('stress', data=stress_pop)
         g1.create_dataset('strain', data=strain_pop)
         g1.create_dataset('u', data=u_pop)
         g1.create_dataset('x0_new', data=x0_new_pop)
+        g1.create_dataset('coordinates', data=coordinates_pop)
+        g1.create_dataset('connectivity', data=connectivity_pop)
 
-        # Save results
-        np.savetxt(os.path.join(save_folder, 'f_current_gen'), f_pop[rank_pop == 0])
-        np.savetxt(os.path.join(save_folder, 'x_current_gen'), x_pop[rank_pop == 0])
-        # np.savetxt(os.path.join(save_folder, 'g_current_gen'), g_pop[rank_pop == 0])
-        # np.savetxt(os.path.join(save_folder, 'cv_current_gen'), cv_pop[rank_pop == 0])
-        np.savetxt(os.path.join(save_folder, 'f_pop_current_gen'), f_pop)
-        np.savetxt(os.path.join(save_folder, 'x_pop_current_gen'), x_pop)
-        if algorithm.problem.n_constr > 0:
-            np.savetxt(os.path.join(save_folder, 'g_pop_current_gen'), g_pop)
-            np.savetxt(os.path.join(save_folder, 'cv_pop_current_gen'), cv_pop)
-        np.savetxt(os.path.join(save_folder, 'rank_pop_current_gen'), rank_pop)
-        np.savetxt(os.path.join(save_folder, 'stress_pop_current_gen'), stress_pop)
-        np.savetxt(os.path.join(save_folder, 'strain_pop_current_gen'), strain_pop)
-        np.savetxt(os.path.join(save_folder, 'u_pop_current_gen'), u_pop)
-        np.save(os.path.join(save_folder, 'x0_new_pop_current_gen'), x0_new_pop)
-        pickle.dump(algorithm, open('pymoo_algorithm_current_gen.pickle', 'wb'))
+    # Save results
+    np.savetxt(os.path.join(save_folder, 'f_current_gen'), f_pop[rank_pop == 0])
+    np.savetxt(os.path.join(save_folder, 'x_current_gen'), x_pop[rank_pop == 0])
+
+    np.savetxt(os.path.join(save_folder, 'f_pop_current_gen'), f_pop)
+    np.savetxt(os.path.join(save_folder, 'x_pop_current_gen'), x_pop)
+
+    x_rank_0 = x_pop[rank_pop == 0]
+    f_rank_0 = f_pop[rank_pop == 0]
+
+    min_weight_sol_indx = np.where(np.min(f_rank_0[:, 0]))[0]
+    min_compliance_sol_indx = np.where(np.min(f_rank_0[:, 1]))[0]
+
+    x_min_weight_solution = x_rank_0[min_weight_sol_indx, :]
+    x_min_compliance_solution = x_rank_0[min_compliance_sol_indx, :]
+    f_min_weight_solution = f_rank_0[min_weight_sol_indx, :]
+    f_min_compliance_solution = f_rank_0[min_compliance_sol_indx, :]
+
+    np.savetxt(os.path.join(save_folder, 'x_extreme_current_gen'),
+               np.append(x_min_weight_solution, x_min_compliance_solution, axis=0))
+    np.savetxt(os.path.join(save_folder, 'f_extreme_current_gen'),
+               np.append(f_min_weight_solution, f_min_compliance_solution, axis=0))
+
+    if algorithm.problem.n_constr > 0:
+        np.savetxt(os.path.join(save_folder, 'g_current_gen'), g_pop[rank_pop == 0])
+        np.savetxt(os.path.join(save_folder, 'cv_current_gen'), cv_pop[rank_pop == 0])
+        np.savetxt(os.path.join(save_folder, 'g_pop_current_gen'), g_pop)
+        np.savetxt(os.path.join(save_folder, 'cv_pop_current_gen'), cv_pop)
+
+    np.savetxt(os.path.join(save_folder, 'rank_pop_current_gen'), rank_pop)
+    np.savetxt(os.path.join(save_folder, 'stress_pop_current_gen'), stress_pop)
+    np.savetxt(os.path.join(save_folder, 'strain_pop_current_gen'), strain_pop)
+    np.savetxt(os.path.join(save_folder, 'u_pop_current_gen'), u_pop)
+    np.save(os.path.join(save_folder, 'x0_new_pop_current_gen'), x0_new_pop)
+    pickle.dump(algorithm, open(os.path.join(save_folder, 'pymoo_algorithm_current_gen.pickle'), 'wb'))
+
+    with open(os.path.join(save_folder, 'repair_details_current_gen'), 'w') as f:
+        for z in algorithm.problem.z_avg:
+            f.write(f"{z} ")
+        f.write("\n")
+        for s in algorithm.problem.shape_rule_score:
+            f.write(f"{s} ")
+        f.write("\n")
+        for r in algorithm.problem.r_avg:
+            f.write(f"{r} ")
+        f.write("\n")
+        for g_indx, grp in enumerate(algorithm.problem.grouped_size_vars):
+            for g in grp:
+                f.write(f"{g} ")
+            f.write("\n")
+            for score in algorithm.problem.size_rule_score[g_indx]:
+                f.write(f"{score} ")
+            f.write("\n")
 
 
 def parse_args(args):
@@ -272,6 +167,7 @@ def parse_args(args):
 
     # Truss parameters
     parser.add_argument('--nshapevar', type=int, default=10, help='Random seed')
+    parser.add_argument('--symmetric', action='store_true', default=False, help='Enforce symmetricity of trusses')
 
     # Optimization parameters
     parser.add_argument('--seed', type=int, default=184716924, help='Random seed')
@@ -283,12 +179,15 @@ def parse_args(args):
     parser.add_argument('--logging', action='store_true', default=True, help='Enable/disable logging')
     parser.add_argument('--save_folder', type=str, help='Experiment name')
 
+    # Parallelization
+    parser.add_argument('--ncores', default=mp.cpu_count() // 4,
+                        help='How many cores to use for population members to be evaluated in parallel')
+
     # Not yet operational
     parser.add_argument('--report-freq', type=float, default=10, help='Default logging frequency in generations')
     parser.add_argument('--crossover', default='real_sbx', help='Choose crossover operator')
     parser.add_argument('--mutation-eta', default=20, help='Define mutation parameter eta')
     parser.add_argument('--mutation-prob', default=0.005, help='Define mutation parameter eta')
-    parser.add_argument('--ncores', default=None, help='How many cores to use for parallel evaluator execution')
 
     return parser.parse_args(args)
 
@@ -296,7 +195,7 @@ def parse_args(args):
 def setup_logging(log_file=None):
     logging.basicConfig(level=logging.DEBUG)
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+    # root.setLevel(logging.DEBUG)
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
@@ -307,7 +206,10 @@ def setup_logging(log_file=None):
     if log_file is not None:
         fh = logging.FileHandler(log_file)
         fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
         root.addHandler(fh)
+
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 if __name__ == '__main__':
@@ -321,7 +223,10 @@ if __name__ == '__main__':
     # seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     # seed = seed_list[0]
 
-    truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar)
+    if cmd_args.symmetric:
+        truss_problem = TrussProblemSymmetric(num_shape_vars=cmd_args.nshapevar)
+    else:
+        truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar)
     truss_optimizer = NSGA2(
         pop_size=cmd_args.popsize,
         sampling=get_sampling("real_random"),
@@ -331,6 +236,7 @@ if __name__ == '__main__':
         callback=record_state,
         display=OptimizationDisplay()
     )
+    termination = get_termination("n_gen", cmd_args.ngen)
 
     save_folder = os.path.join('output', f'truss_nsga2_parallel_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
@@ -339,7 +245,7 @@ if __name__ == '__main__':
             warnings.warn("Population size might be too low to learn innovization rules")
             logging.warning("Population size might be too low to learn innovization rules")
         # truss_optimizer.repair = MonotonicityRepairV1()
-        truss_optimizer.repair = ParameterlessMonotonicityRepair()
+        truss_optimizer.repair = ParameterlessInequalityRepair()
         save_folder = os.path.join('output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")
@@ -354,8 +260,23 @@ if __name__ == '__main__':
     if cmd_args.logging:
         setup_logging(log_file=os.path.join(save_folder, 'log.txt'))
 
-    termination = get_termination("n_gen", cmd_args.ngen)
+    logging.info(f"User-supplied arguments: {sys.argv[1:]}")
+    logging.info(f"All arguments after parsing: {cmd_args}")
+    logging.info(f"Population size = {truss_optimizer.pop_size}, Max. generations = {termination.n_max_gen}")
+    logging.info(f"Vars = {truss_problem.n_var}, "
+                 f"Objectives = {truss_problem.n_obj}, Constraints = {truss_problem.n_constr}")
+    logging.info(f"Range of decision variables:\nX_L=\n{truss_problem.xl}\nX_U=\n{truss_problem.xu}\n")
+    logging.info(f"Size variables = {truss_problem.num_size_vars}")
+    logging.info(f"Shape variables = {truss_problem.num_shape_vars}")
+    logging.info(f"Fixed nodes:\n{truss_problem.fixed_nodes}")
+    logging.info(f"Load nodes:\n{truss_problem.load_nodes}")
+    logging.info(f"Force:\n{truss_problem.force}")
+    if cmd_args.repair:
+        logging.info("Members grouped together for repair:\ntruss_problem.grouped_members")
+    else:
+        logging.info("Repair not active")
 
+    logging.info("Beginning optimization")
     res = minimize(truss_problem,
                    truss_optimizer,
                    termination,
@@ -363,6 +284,7 @@ if __name__ == '__main__':
                    save_history=False,
                    verbose=True)
 
+    logging.info("Optimization complete. Writing data")
     print(res.F)
 
     # Save results
@@ -402,10 +324,13 @@ if __name__ == '__main__':
     pickle.dump(res, open('pymoo_result.pickle', 'wb'))
 
     t1 = time.time()
-    print("Total execution time: ", t1 - t0)  # Seconds elapsed
+    total_execution_time = t1 - t0
+    print(f"Total execution time {total_execution_time}")  # Seconds elapsed
+    logging.info(f"Total execution time {total_execution_time}")
 
     # Plot results
     plt.scatter(res.F[:, 0], res.F[:, 1])
     plt.xlabel("Weight (kg)")
     plt.ylabel("Compliance (m/N)")
+    plt.savefig(os.path.join(save_folder, 'pf.png'))
     plt.show()

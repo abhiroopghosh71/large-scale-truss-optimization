@@ -20,7 +20,7 @@ import pickle
 import warnings
 
 
-from truss_repair import MonotonicityRepairV1, ParameterlessMonotonicityRepair
+from truss_repair import SimpleInequalityRepair, ParameterlessInequalityRepair
 from obj_eval import calc_obj
 
 
@@ -302,7 +302,7 @@ if __name__ == '__main__':
             warnings.warn("Population size might be too low to learn innovization rules")
             logging.warning("Population size might be too low to learn innovization rules")
         # truss_optimizer.repair = MonotonicityRepairV1()
-        truss_optimizer.repair = ParameterlessMonotonicityRepair()
+        truss_optimizer.repair = ParameterlessInequalityRepair()
         save_folder = os.path.join('output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")

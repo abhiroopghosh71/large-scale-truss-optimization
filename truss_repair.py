@@ -8,7 +8,7 @@ import copy
 logger = logging.getLogger(__name__)
 
 
-class MonotonicityRepairV1(Repair):
+class SimpleInequalityRepair(Repair):
 
     def __init__(self):
         super().__init__()
@@ -76,7 +76,7 @@ class MonotonicityRepairV1(Repair):
         return x_repaired
 
 
-class ParameterlessMonotonicityRepair(Repair):
+class ParameterlessInequalityRepair(Repair):
 
     @staticmethod
     def learn_rules(problem, x):
@@ -136,7 +136,7 @@ class ParameterlessMonotonicityRepair(Repair):
             problem.r_avg[indx] = np.mean(r_without_outliers[indx])
             problem.r_std[indx] = np.std(r_without_outliers[indx])
 
-        for indx, grp in enumerate(problem.grouped_members):
+        for indx, grp in enumerate(problem.grouped_size_vars):
             r_grp = r[:, grp]
             r_grp_avg = problem.r_avg[grp]
             problem.size_rule_score[indx] = np.zeros(problem.size_rule_score[indx].shape)
@@ -206,7 +206,7 @@ class ParameterlessMonotonicityRepair(Repair):
             r = x[i, :problem.num_size_vars]
             r_repaired = np.copy(r)
 
-            for indx, grp in enumerate(problem.grouped_members):
+            for indx, grp in enumerate(problem.grouped_size_vars):
                 for j in range(len(grp) - 1):
                     # Repair any solutions not conforming to the average with a probability proportional to the rule score
                     diff = np.abs(r_repaired[j] - r_repaired[j + 1])
