@@ -18,11 +18,11 @@ def test_truss_evaluator():
     # force_file = 'truss/sample_input/force.csv'
 
     # ISCSO example files
-    coordinates_file = 'tests/test_truss_input/coord_iscso.csv'
-    connectivity_file = 'tests/test_truss_input/connect_iscso.csv'
-    fixednodes_file = 'tests/test_truss_input/fixn_iscso.csv'
-    loadn_file = 'tests/test_truss_input/loadn_iscso.csv'
-    force_file = 'tests/test_truss_input/force_iscso.csv'
+    coordinates_file = 'tests/test_truss_input_output/coord_iscso.csv'
+    connectivity_file = 'tests/test_truss_input_output/connect_iscso.csv'
+    fixednodes_file = 'tests/test_truss_input_output/fixn_iscso.csv'
+    loadn_file = 'tests/test_truss_input_output/loadn_iscso.csv'
+    force_file = 'tests/test_truss_input_output/force_iscso.csv'
 
     coordinates = matlab.double(np.loadtxt(coordinates_file, delimiter=',').tolist())
     connectivity = matlab.double(np.loadtxt(connectivity_file, delimiter=',').tolist())

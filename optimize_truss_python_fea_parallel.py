@@ -16,7 +16,7 @@ import warnings
 
 
 from truss_repair import ParameterlessInequalityRepair
-from truss import TrussProblem
+from truss.truss_symmetric_shape_only import TrussProblem
 from truss_symmetric import TrussProblemSymmetric
 
 save_folder = os.path.join('output', 'truss_optimization_nsga2')

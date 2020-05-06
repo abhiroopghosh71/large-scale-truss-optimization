@@ -8,22 +8,24 @@ from pymoo.optimize import minimize
 
 
 import optimize_truss_python_fea_parallel
+from truss.truss_symmetric_shape_only import TrussProblem
 
 
 def test_truss_optimizer_python_fea():
     t0 = time.time()
     os.chdir('..')
     seed = 184716924
-    optimize_truss_python_fea_parallel.save_file = os.path.join(os.getcwd(), 'output',
-                                                                f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
-    os.makedirs(optimize_truss_python_fea_parallel.save_file)
-    problem = optimize_truss_python_fea_parallel.TrussProblem()
+    optimize_truss_python_fea_parallel.save_folder = os.path.join(os.getcwd(), 'output',
+                                                                  f'truss_nsga2_test_seed{seed}_'
+                                                                  f'{time.strftime("%Y%m%d-%H%M%S")}')
+    os.makedirs(optimize_truss_python_fea_parallel.save_folder)
+    problem = TrussProblem()
 
-    coordinates_file = 'tests/test_truss_input/coord_iscso.csv'
-    connectivity_file = 'tests/test_truss_input/connect_iscso.csv'
-    fixednodes_file = 'tests/test_truss_input/fixn_iscso.csv'
-    loadn_file = 'tests/test_truss_input/loadn_iscso.csv'
-    force_file = 'tests/test_truss_input/force_iscso.csv'
+    coordinates_file = 'tests/test_truss_input_output/coord_iscso.csv'
+    connectivity_file = 'tests/test_truss_input_output/connect_iscso.csv'
+    fixednodes_file = 'tests/test_truss_input_output/fixn_iscso.csv'
+    loadn_file = 'tests/test_truss_input_output/loadn_iscso.csv'
+    force_file = 'tests/test_truss_input_output/force_iscso.csv'
 
     problem.coordinates = np.loadtxt(coordinates_file, delimiter=',')
     problem.connectivity = np.loadtxt(connectivity_file, delimiter=',')
@@ -38,8 +40,8 @@ def test_truss_optimizer_python_fea():
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
         mutation=get_mutation("real_pm", eta=20),
         eliminate_duplicates=True,
-        # callback=optimize_truss.record_state,
-        # display=optimize_truss.OptimizationDisplay()
+        callback=optimize_truss_python_fea_parallel.record_state,
+        display=optimize_truss_python_fea_parallel.OptimizationDisplay()
     )
 
     termination = get_termination("n_gen", 50)
