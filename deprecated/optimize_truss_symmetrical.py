@@ -1,22 +1,18 @@
-from pymoo.model.problem import Problem
-import numpy as np
-import matlab
-import matlab.engine
-from pymoo.algorithms.nsga2 import NSGA2
-from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.optimize import minimize
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-import pickle
-import h5py
 import os
 import time
 
-from obj_eval import calc_obj
-
+import h5py
+import matlab
+import matlab.engine
+import matplotlib.pyplot as plt
+import numpy as np
+from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
+from pymoo.model.problem import Problem
+from pymoo.optimize import minimize
 
 matlab_engine = matlab.engine.start_matlab()
-save_file = os.path.join('output', 'truss_optimization_nsga2')
+save_file = os.path.join('../output', 'truss_optimization_nsga2')
 
 # pool = mp.Pool(processes=4)
 
@@ -28,11 +24,11 @@ class TrussProblem(Problem):
         self.yield_stress = 248.2e6  # Pa
         self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
 
-        coordinates_file = 'truss/sample_input/coord_iscso.csv'
-        connectivity_file = 'truss/sample_input/connect_iscso.csv'
-        fixednodes_file = 'truss/sample_input/fixn_iscso.csv'
-        loadn_file = 'truss/sample_input/loadn_iscso.csv'
-        force_file = 'truss/sample_input/force_iscso.csv'
+        coordinates_file = '../truss/sample_input/coord_iscso.csv'
+        connectivity_file = '../truss/sample_input/connect_iscso.csv'
+        fixednodes_file = '../truss/sample_input/fixn_iscso.csv'
+        loadn_file = '../truss/sample_input/loadn_iscso.csv'
+        force_file = '../truss/sample_input/force_iscso.csv'
 
         # coordinates = matlab.double(np.loadtxt(coordinates_file, delimiter=',').tolist())
         # connectivity = matlab.double(np.loadtxt(connectivity_file, delimiter=',').tolist())
@@ -154,7 +150,7 @@ def record_state(algorithm):
 if __name__ == '__main__':
     seed_list = np.loadtxt('random_seed_list', dtype=np.int32)
     seed = seed_list[0]
-    save_file = os.path.join('output', f'truss_symmetric_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    save_file = os.path.join('../output', f'truss_symmetric_nsga2_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
     os.makedirs(save_file)
     problem = TrussProblem()
     algorithm = NSGA2(

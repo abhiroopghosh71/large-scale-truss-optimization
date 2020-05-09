@@ -1,28 +1,23 @@
-from pymoo.model.problem import Problem
-import numpy as np
-from scipy.stats import trim_mean
-import matlab
-import matlab.engine
-from pymoo.algorithms.nsga2 import NSGA2
-from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.optimize import minimize
-from pymoo.util.display import Display
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-import h5py
-import os
-import time
 import argparse
-import sys
 import logging
+import os
 import pickle
+import sys
+import time
 import warnings
 
+import h5py
+import matlab
+import matlab.engine
+import matplotlib.pyplot as plt
+import numpy as np
+from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
+from pymoo.model.problem import Problem
+from pymoo.optimize import minimize
+from pymoo.util.display import Display
 
-from truss_repair import SimpleInequalityRepair, ParameterlessInequalityRepair
-from obj_eval import calc_obj
-
+from truss.repair.truss_repair import ParameterlessInequalityRepair
 
 matlab_engine = matlab.engine.start_matlab()
 save_folder = os.path.join('output', 'truss_optimization_nsga2')

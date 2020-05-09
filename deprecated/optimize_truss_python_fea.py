@@ -1,28 +1,24 @@
-from pymoo.model.problem import Problem
-import numpy as np
-from scipy.stats import trim_mean
-from pymoo.algorithms.nsga2 import NSGA2
-from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.optimize import minimize
-from pymoo.util.display import Display
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-import h5py
-import os
-import time
 import argparse
-import sys
 import logging
+import os
 import pickle
+import sys
+import time
 import warnings
 
+import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
+from pymoo.model.problem import Problem
+from pymoo.optimize import minimize
+from pymoo.util.display import Display
 
-from truss_repair import SimpleInequalityRepair, ParameterlessInequalityRepair
-from obj_eval import calc_obj
-from run_fea import run_fea
+from truss.fea.run_fea import run_fea
+from truss.repair.truss_repair import ParameterlessInequalityRepair
 
-save_folder = os.path.join('output', 'truss_optimization_nsga2')
+save_folder = os.path.join('../output', 'truss_optimization_nsga2')
 
 
 class OptimizationDisplay(Display):
@@ -50,11 +46,11 @@ class TrussProblem(Problem):
         self.num_shape_vars = 10
         self.num_size_vars = 260
 
-        coordinates_file = 'truss/sample_input/coord_iscso.csv'
-        connectivity_file = 'truss/sample_input/connect_iscso.csv'
-        fixednodes_file = 'truss/sample_input/fixn_iscso.csv'
-        loadn_file = 'truss/sample_input/loadn_iscso.csv'
-        force_file = 'truss/sample_input/force_iscso_z.csv'
+        coordinates_file = '../truss/sample_input/coord_iscso.csv'
+        connectivity_file = '../truss/sample_input/connect_iscso.csv'
+        fixednodes_file = '../truss/sample_input/fixn_iscso.csv'
+        loadn_file = '../truss/sample_input/loadn_iscso.csv'
+        force_file = '../truss/sample_input/force_iscso_z.csv'
 
         self.coordinates = np.loadtxt(coordinates_file, delimiter=',')
         self.connectivity = np.loadtxt(connectivity_file, delimiter=',')
@@ -232,7 +228,7 @@ def record_state(algorithm):
         np.savetxt(os.path.join(save_folder, 'strain_pop_current_gen'), strain_pop)
         np.savetxt(os.path.join(save_folder, 'u_pop_current_gen'), u_pop)
         np.save(os.path.join(save_folder, 'x0_new_pop_current_gen'), x0_new_pop)
-        pickle.dump(algorithm, open('pymoo_algorithm_current_gen.pickle', 'wb'))
+        pickle.dump(algorithm, open('../pymoo_algorithm_current_gen.pickle', 'wb'))
 
 
 def parse_args(args):
@@ -304,7 +300,7 @@ if __name__ == '__main__':
         display=OptimizationDisplay()
     )
 
-    save_folder = os.path.join('output', f'truss_nsga2_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    save_folder = os.path.join('../output', f'truss_nsga2_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
     if cmd_args.repair:
         if truss_optimizer.pop_size < 50:
@@ -312,14 +308,14 @@ if __name__ == '__main__':
             logging.warning("Population size might be too low to learn innovization rules")
         # truss_optimizer.repair = MonotonicityRepairV1()
         truss_optimizer.repair = ParameterlessInequalityRepair()
-        save_folder = os.path.join('output',
+        save_folder = os.path.join('../output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")
         print("Repair operator active")
         print("======================")
 
     if cmd_args.save_folder is not None:
-        save_folder = os.path.join('output', cmd_args.save_folder)
+        save_folder = os.path.join('../output', cmd_args.save_folder)
 
     os.makedirs(save_folder)
 
@@ -369,7 +365,7 @@ if __name__ == '__main__':
     np.save(os.path.join(save_folder, 'x0_new_pop_max_gen'), x0_new_final_pop)
 
     # Save pymoo result object
-    pickle.dump(res, open('pymoo_result.pickle', 'wb'))
+    pickle.dump(res, open('../pymoo_result.pickle', 'wb'))
 
     t1 = time.time()
     print("Total execution time: ", t1 - t0)  # Seconds elapsed

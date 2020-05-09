@@ -1,10 +1,11 @@
-import multiprocessing as mp
-from pymoo.model.problem import Problem
-import numpy as np
 import logging
+import multiprocessing as mp
 
+import numpy as np
+from pymoo.model.problem import Problem
+
+from truss.fea.run_fea import run_fea
 from utils.generate_truss import gen_truss
-from run_fea import run_fea
 
 
 class TrussProblemSymmetric(Problem):
@@ -50,19 +51,6 @@ class TrussProblemSymmetric(Problem):
         self.grouped_size_vars.append(np.arange(self.num_size_vars,
                                                 self.num_size_vars + len(self.member_groups['cross_xy'][0])//2 * 2))
         self.num_size_vars += len(self.member_groups['cross_xy'][0])//2 * 2
-        # for key in self.member_groups.keys():
-        #     members = self.member_groups[key]
-        #     if key == 'straight_x':
-        #         for m in members:
-        #             self.num_size_vars += len(m) // 2
-        #     elif key == 'straight_xz':
-        #         for m in members:
-        #             self.num_size_vars += len(m)//2 + 1
-        #     elif key == 'straight_xy':
-        #         for m in members:
-        #             self.num_size_vars += len(m)//2 + 1
-        #     elif key == 'slanted_xz':
-        #         self.num_size_vars += len(members[0]) * 4
 
         self.fixed_nodes = self.fixed_nodes.reshape(-1, 1)
         self.load_nodes = self.load_nodes.reshape(-1, 1)
@@ -70,24 +58,24 @@ class TrussProblemSymmetric(Problem):
         print(f"No. of shape vars = {self.num_shape_vars}")
         print(self.force)
 
+        # Innovization parameters (general)
+        self.percent_rank_0 = None
+
         # Innovization parameters (shape)
-        self.z_avg = -1e16 * np.ones(self.num_shape_vars)
-        self.z_std = -1e16 * np.ones(self.num_shape_vars)
+        self.z_avg = np.nan * np.ones(self.num_shape_vars)
+        self.z_std = np.nan * np.ones(self.num_shape_vars)
         self.shape_rule_score = np.zeros(self.num_shape_vars - 1)  # A score given to a rule between 0 and 1
+        self.z_ref = np.nan * np.ones(self.num_shape_vars)  # The reference shape to use for repair
+        self.z_ref_history = []
 
         # Innovization parameters (size)
-        # TODO: Replace with groups returned by gen_truss                      ]
-        # self.grouped_size_vars = [np.arange(0, 2 * self.num_shape_vars - 2),
-        #                           np.arange(2*self.num_shape_vars - 2, 4*self.num_shape_vars - 4),
-        #                           np.arange(4*self.num_shape_vars - 4, 6*self.num_shape_vars - 6),
-        #                           np.arange(6*self.num_shape_vars - 6, 8*self.num_shape_vars - 8),
-        #                           ]
-        self.r_avg = -1e16 * np.ones(self.num_size_vars)
-        self.r_std = -1e16 * np.ones(self.num_size_vars)
+        self.r_avg = np.nan * np.ones(self.num_size_vars)
+        self.r_std = np.nan * np.ones(self.num_size_vars)
         self.size_rule_score = []  # A score given to a rule between 0 and 1
         for grp in self.grouped_size_vars:
             self.size_rule_score.append(np.zeros(len(grp) - 1))
-        self.percent_rank_0 = None
+        self.r_ref = np.nan * np.ones(self.num_size_vars)  # The reference shape to use for repair
+        self.r_ref_history = []
 
         # Parallelization
         self.n_cores = n_cores
@@ -104,26 +92,10 @@ class TrussProblemSymmetric(Problem):
         print(f"Number of constraints = {self.n_constr}")
 
     @staticmethod
-    def calc_obj(i, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density, elastic_modulus,
-                 yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
+    def calc_obj(i, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density,
+                 elastic_modulus, yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
         r = np.copy(x[:-num_shape_vars])  # Radius of each element
         z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
-
-        # for key in member_groups:
-        #     # Take each member type
-        #     grp = member_groups[key]
-        #     # Among each member type there are subtypes
-        #     for m in grp:
-        #         m_length = len(m)
-        #         connectivity[m[:len(m)//2], 2] = x[x_indx:x_indx + len(m)//2]
-        #         connectivity[m[len(m)//2:], 2] = np.flip(x[x_indx:x_indx + len(m)//2])
-        #         x_indx += len(m)//2 + 1
-        # num_size_vars += len(member_groups['straight_x'][0])//2 * 2
-        # num_size_vars += len(member_groups['straight_xz'][0])//2 + 1
-        # num_size_vars += len(member_groups['straight_xy'][0])//2 + 1
-        # num_size_vars += len(member_groups['slanted_xz'][0]) * 2
-        # num_size_vars += len(member_groups['cross_yz_end'][0]) // 2
-        # num_size_vars += len(member_groups['cross_xy'][0])//2 * 2
 
         r_indx = 0
         m = member_groups['straight_x']
@@ -193,8 +165,6 @@ class TrussProblemSymmetric(Problem):
         del_coord = np.array(x0_new) - coordinates
 
         f = np.array([weight, compliance])
-        # f = np.array([weight, np.max(np.abs(u))])
-        # f2 = np.max(np.abs(del_x[:, 2]))
 
         # Allow displacement only in -z direction
         if np.max(del_coord[:, 2]) > 0:

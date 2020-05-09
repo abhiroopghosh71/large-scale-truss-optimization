@@ -1,24 +1,23 @@
-import pytest
 import os
-import numpy as np
 import time
+
+import numpy as np
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 
+import optimize_truss_matlab_fea
 
-import optimize_truss_python_fea
 
-
-def test_truss_optimizer_python_fea():
+def test_truss_optimizer():
     t0 = time.time()
     os.chdir('..')
     seed = 184716924
-    optimize_truss_python_fea.save_file = os.path.join(os.getcwd(), 'output',
-                                            f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
-    os.makedirs(optimize_truss_python_fea.save_file)
-    problem = optimize_truss_python_fea.TrussProblem()
-    problem.force = np.array([5000, 1000, -5000])
+    optimize_truss_matlab_fea.save_file = os.path.join(os.getcwd(), 'output',
+                                                       f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
+    os.makedirs(optimize_truss_matlab_fea.save_folder)
+    problem = optimize_truss_matlab_fea.TrussProblem()
+    optimize_truss_matlab_fea.matlab_engine.addpath(os.getcwd())
     algorithm = NSGA2(
         pop_size=20,
         # n_offsprings=10,
@@ -26,8 +25,8 @@ def test_truss_optimizer_python_fea():
         crossover=get_crossover("real_sbx", prob=0.9, eta=30),
         mutation=get_mutation("real_pm", eta=20),
         eliminate_duplicates=True,
-        # callback=optimize_truss.record_state,
-        # display=optimize_truss.OptimizationDisplay()
+        callback=optimize_truss_matlab_fea.record_state,
+        display=optimize_truss_matlab_fea.OptimizationDisplay()
     )
 
     termination = get_termination("n_gen", 50)
@@ -39,7 +38,6 @@ def test_truss_optimizer_python_fea():
                    verbose=True)
 
     print(f"Total execution time = {time.time() - t0} seconds")
-
     np.allclose(res.F,
                 np.array([[9.13229410e+04, 1.94409845e+00],
                           [1.08504089e+05, 1.33373249e+00],

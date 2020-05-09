@@ -1,23 +1,23 @@
+import argparse
+import logging
+import multiprocessing as mp
+import os
+import pickle
+import sys
+import time
+import warnings
+
+import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 from pymoo.util.display import Display
-import matplotlib.pyplot as plt
-import multiprocessing as mp
-import h5py
-import os
-import time
-import argparse
-import sys
-import logging
-import pickle
-import warnings
 
-
-from truss_repair import ParameterlessInequalityRepair
+from truss.repair.truss_repair import ParameterlessInequalityRepair
+from truss.truss_symmetric import TrussProblemSymmetric
 from truss.truss_symmetric_shape_only import TrussProblem
-from truss_symmetric import TrussProblemSymmetric
 
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
@@ -48,6 +48,8 @@ def record_state(algorithm):
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
     rank_pop = algorithm.pop.get('rank')
+    g_pop = None
+    cv_pop = None
 
     if algorithm.problem.n_constr > 0:
         g_pop = algorithm.pop.get('G')
@@ -85,13 +87,13 @@ def record_state(algorithm):
         x0_new_pop = np.zeros([algorithm.pop_size, num_nodes, 3])
         coordinates_pop = np.zeros([algorithm.pop_size, num_nodes, 3])
         connectivity_pop = np.zeros([algorithm.pop_size, num_members, 3])
-        for indx in range(algorithm.pop_size):
-            stress_pop[indx, :] = algorithm.pop[indx].data['stress'].reshape(1, -1)
-            strain_pop[indx, :] = algorithm.pop[indx].data['strain'].reshape(1, -1)
-            u_pop[indx, :] = algorithm.pop[indx].data['u'].reshape(1, -1)
-            x0_new_pop[indx, :, :] = algorithm.pop[indx].data['x0_new']
-            coordinates_pop[indx, :] = algorithm.pop[indx].data['coordinates']
-            connectivity_pop[indx, :] = algorithm.pop[indx].data['connectivity']
+        for pop_indx in range(algorithm.pop_size):
+            stress_pop[pop_indx, :] = algorithm.pop[pop_indx].data['stress'].reshape(1, -1)
+            strain_pop[pop_indx, :] = algorithm.pop[pop_indx].data['strain'].reshape(1, -1)
+            u_pop[pop_indx, :] = algorithm.pop[pop_indx].data['u'].reshape(1, -1)
+            x0_new_pop[pop_indx, :, :] = algorithm.pop[pop_indx].data['x0_new']
+            coordinates_pop[pop_indx, :] = algorithm.pop[pop_indx].data['coordinates']
+            connectivity_pop[pop_indx, :] = algorithm.pop[pop_indx].data['connectivity']
 
         g1.create_dataset('stress', data=stress_pop)
         g1.create_dataset('strain', data=strain_pop)
@@ -159,7 +161,7 @@ def parse_args(args):
     """Defines and parses the command line arguments that can be supplied by the user.
 
     Args:
-        args (dict): Command line arguments supplied by the user.
+        args (list): Command line arguments supplied by the user.
 
     """
     # Command line args accepted by the program
@@ -192,16 +194,17 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def setup_logging(log_file=None):
-    logging.basicConfig(level=logging.DEBUG)
+def setup_logging(out_to_console=False, log_file=None):
+    # logging.basicConfig(level=logging.DEBUG)
     root = logging.getLogger()
-    # root.setLevel(logging.DEBUG)
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
+    root.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
+
+    if out_to_console:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
 
     if log_file is not None:
         fh = logging.FileHandler(log_file)
@@ -321,7 +324,7 @@ if __name__ == '__main__':
     np.save(os.path.join(save_folder, 'x0_new_pop_max_gen'), x0_new_final_pop)
 
     # Save pymoo result object
-    pickle.dump(res, open('pymoo_result.pickle', 'wb'))
+    pickle.dump(res, open(os.path.join(save_folder, 'pymoo_result.pickle'), 'wb'))
 
     t1 = time.time()
     total_execution_time = t1 - t0
