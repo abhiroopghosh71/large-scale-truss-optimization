@@ -1,5 +1,4 @@
 import matlab.engine
-import matlab
 import numpy as np
 
 eng = matlab.engine.start_matlab()

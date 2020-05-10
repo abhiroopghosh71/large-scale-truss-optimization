@@ -7,6 +7,8 @@ from pymoo.model.problem import Problem
 from truss.fea.run_fea import run_fea
 from utils.generate_truss import gen_truss
 
+logger = logging.getLogger(__name__)
+
 
 class TrussProblemSymmetric(Problem):
 
@@ -82,7 +84,7 @@ class TrussProblemSymmetric(Problem):
         if n_cores > mp.cpu_count():
             self.n_cores = mp.cpu_count()
 
-            # TODO: Make n_constr a user parameter
+        # TODO: Make n_constr a user parameter
         super().__init__(n_var=self.num_shape_vars + self.num_size_vars,
                          n_obj=2,
                          n_constr=2,
@@ -92,11 +94,7 @@ class TrussProblemSymmetric(Problem):
         print(f"Number of constraints = {self.n_constr}")
 
     @staticmethod
-    def calc_obj(i, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density,
-                 elastic_modulus, yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
-        r = np.copy(x[:-num_shape_vars])  # Radius of each element
-        z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
-
+    def set_conectivity_matrix(connectivity, r, member_groups):
         r_indx = 0
         m = member_groups['straight_x']
         connectivity[m[0][:len(m[0]) // 2], 2] = r[r_indx:r_indx + len(m[0]) // 2]  # Bottom
@@ -151,15 +149,33 @@ class TrussProblemSymmetric(Problem):
         connectivity[m[3][:len(m[0]) // 2], 2] = r[r_indx:r_indx + len(m[0]) // 2]  # z = 4
         connectivity[m[3][len(m[0]) // 2:], 2] = np.flip(r[r_indx:r_indx + len(m[0]) // 2])  # z = 4
 
+        return connectivity
+
+    @staticmethod
+    def set_coordinate_matrix(coordinates, z, num_shape_vars):
         # Change node coordinates according to the shape decision variables
         coordinates[0:num_shape_vars, 2] = z
         coordinates[(2*num_shape_vars - 1) * 2:(2*num_shape_vars - 1) * 2 + num_shape_vars, 2] = z
         coordinates[num_shape_vars:2*num_shape_vars - 1, 2] = np.flip(z[:-1])
-        coordinates[(2*num_shape_vars - 1) * 2 + num_shape_vars:(2*num_shape_vars - 1) * 2 + 2*num_shape_vars - 1, 2]\
+        coordinates[(2*num_shape_vars - 1) * 2 + num_shape_vars:(2*num_shape_vars - 1) * 2 + 2*num_shape_vars - 1, 2] \
             = np.flip(z[:-1])
 
-        weight, compliance, stress, strain, u, x0_new = run_fea(np.copy(coordinates),
-                                                                np.copy(connectivity), fixed_nodes,
+        return coordinates
+
+    @staticmethod
+    def calc_obj(i, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density,
+                 elastic_modulus, yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
+        r = np.copy(x[:-num_shape_vars])  # Radius of each element
+        z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
+
+        connectivity = TrussProblemSymmetric.set_conectivity_matrix(connectivity=connectivity, r=r,
+                                                                    member_groups=member_groups)
+
+        coordinates = TrussProblemSymmetric.set_coordinate_matrix(coordinates=coordinates, z=z,
+                                                                  num_shape_vars=num_shape_vars)
+
+        weight, compliance, stress, strain, u, x0_new = run_fea(np.copy(coordinates), np.copy(connectivity),
+                                                                fixed_nodes,
                                                                 load_nodes, force, density,
                                                                 elastic_modulus, structure_type=structure_type)
         del_coord = np.array(x0_new) - coordinates

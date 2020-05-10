@@ -8,14 +8,13 @@ logger = logging.getLogger(__name__)
 
 class ParameterlessInequalityRepair(Repair):
 
-    def __init__(self, use_momentum=True):
+    def __init__(self, momentum_coefficient=0.3):
         super().__init__()
 
         self.percent_of_pop_in_pf = 0.8  # How much of pop should be in pf before repair is done
         self.repair_interval = 10  # Generation gap between repairs
         # Used to control the influence momentum has on deciding the reference shape used for repair
-        self.momentum_coefficient = 1
-        self.use_momentum = use_momentum  # Whether to use momentum coefficient to repair offsprings
+        self.momentum_coefficient = momentum_coefficient
 
     @staticmethod
     def calc_mean_std_without_outliers(x):
@@ -31,8 +30,8 @@ class ParameterlessInequalityRepair(Repair):
             # Mean value converged
             while np.abs(mean_init - mean_new[i]) > 1e-6:
                 # Remove data points beyond 2sd of the mean
-                x_arr = np.delete(x_arr, np.where(x_arr >= (mean_new[i] + 2*std_new[i])))
-                x_arr = np.delete(x_arr, np.where(x_arr <= (mean_new[i] - 2*std_new[i])))
+                x_arr = np.delete(x_arr, np.where(x_arr > (mean_new[i] + 2*std_new[i])))
+                x_arr = np.delete(x_arr, np.where(x_arr < (mean_new[i] - 2*std_new[i])))
 
                 mean_init = mean_new[i]  # Store the old value of mean
 
@@ -119,7 +118,8 @@ class ParameterlessInequalityRepair(Repair):
             # Proportion of solutions following a rule
             problem.size_rule_score[indx] = problem.size_rule_score[indx] / r.shape[0]
 
-        if len(problem.z_ref_history > 1):
+        # Calculate ref. z vector used for repair
+        if len(problem.z_ref_history) > 1:
             z_avg_momentum = problem.z_ref_history[-1] - problem.z_ref_history[-2]
         else:
             z_avg_momentum = 0
@@ -127,8 +127,9 @@ class ParameterlessInequalityRepair(Repair):
         problem.z_ref = problem.z_avg + self.momentum_coefficient*z_avg_momentum
         problem.z_ref_history.append(problem.z_ref)
 
-        if self.use_momentum and len(problem.r_ref_history > 1):
-            r_avg_momentum = problem.z_ref_history[-1] - problem.z_ref_history[-2]
+        # Calculate ref. r vector used for repair
+        if len(problem.r_ref_history) > 1:
+            r_avg_momentum = problem.r_ref_history[-1] - problem.r_ref_history[-2]
         else:
             r_avg_momentum = 0
 

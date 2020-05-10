@@ -63,6 +63,7 @@ def record_state(algorithm):
         else:
             algorithm.repair.learn_rules(algorithm.problem, x_pop[rank_pop == 0])
 
+    # print(algorithm.problem.z_avg)
     algorithm.problem.percent_rank_0 = x_pop[rank_pop == 0].shape[0] / x_pop.shape[0]
 
     # TODO: Add max gen to hdf file
@@ -101,6 +102,19 @@ def record_state(algorithm):
         g1.create_dataset('x0_new', data=x0_new_pop)
         g1.create_dataset('coordinates', data=coordinates_pop)
         g1.create_dataset('connectivity', data=connectivity_pop)
+        g1.create_dataset('z_avg', data=algorithm.problem.z_avg)
+        g1.create_dataset('z_ref', data=algorithm.problem.z_ref)
+        g1.create_dataset('r_avg', data=algorithm.problem.r_avg)
+        g1.create_dataset('r_ref', data=algorithm.problem.r_ref)
+
+        with open(os.path.join(save_folder, 'z_ref'), 'a') as f:
+            f.write(f"{algorithm.problem.z_ref}\n")
+        with open(os.path.join(save_folder, 'z_avg'), 'a') as f:
+            f.write(f"{algorithm.problem.z_avg}\n")
+        with open(os.path.join(save_folder, 'r_avg'), 'a') as f:
+            f.write(f"{algorithm.problem.r_avg}\n")
+        with open(os.path.join(save_folder, 'r_ref'), 'a') as f:
+            f.write(f"{algorithm.problem.r_ref}\n")
 
     # Save results
     np.savetxt(os.path.join(save_folder, 'f_current_gen'), f_pop[rank_pop == 0])
@@ -175,7 +189,10 @@ def parse_args(args):
     parser.add_argument('--seed', type=int, default=184716924, help='Random seed')
     parser.add_argument('--ngen', type=int, default=200, help='Maximum number of generations')
     parser.add_argument('--popsize', type=int, default=100, help='Population size')
+
+    # Innovization
     parser.add_argument('--repair', action='store_true', default=False, help='Apply custom repair operator')
+    parser.add_argument('--momentum', type=float, default=0.3, help='Value of momentum coefficient')
 
     # Logging parameters
     parser.add_argument('--logging', action='store_true', default=True, help='Enable/disable logging')
@@ -248,7 +265,8 @@ if __name__ == '__main__':
             warnings.warn("Population size might be too low to learn innovization rules")
             logging.warning("Population size might be too low to learn innovization rules")
         # truss_optimizer.repair = MonotonicityRepairV1()
-        truss_optimizer.repair = ParameterlessInequalityRepair()
+
+        truss_optimizer.repair = ParameterlessInequalityRepair(momentum_coefficient=cmd_args.momentum)
         save_folder = os.path.join('output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
         print("======================")
