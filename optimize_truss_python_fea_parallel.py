@@ -123,21 +123,21 @@ def record_state(algorithm):
     np.savetxt(os.path.join(save_folder, 'f_pop_current_gen'), f_pop)
     np.savetxt(os.path.join(save_folder, 'x_pop_current_gen'), x_pop)
 
-    x_rank_0 = x_pop[rank_pop == 0]
-    f_rank_0 = f_pop[rank_pop == 0]
+    # x_rank_0 = x_pop[rank_pop == 0]
+    # f_rank_0 = f_pop[rank_pop == 0]
 
-    min_weight_sol_indx = np.where(np.min(f_rank_0[:, 0]))[0]
-    min_compliance_sol_indx = np.where(np.min(f_rank_0[:, 1]))[0]
-
-    x_min_weight_solution = x_rank_0[min_weight_sol_indx, :]
-    x_min_compliance_solution = x_rank_0[min_compliance_sol_indx, :]
-    f_min_weight_solution = f_rank_0[min_weight_sol_indx, :]
-    f_min_compliance_solution = f_rank_0[min_compliance_sol_indx, :]
-
-    np.savetxt(os.path.join(save_folder, 'x_extreme_current_gen'),
-               np.append(x_min_weight_solution, x_min_compliance_solution, axis=0))
-    np.savetxt(os.path.join(save_folder, 'f_extreme_current_gen'),
-               np.append(f_min_weight_solution, f_min_compliance_solution, axis=0))
+    # min_weight_sol_indx = np.where(np.min(f_rank_0[:, 0]))[0]
+    # min_compliance_sol_indx = np.where(np.min(f_rank_0[:, 1]))[0]
+    #
+    # x_min_weight_solution = x_rank_0[min_weight_sol_indx, :]
+    # x_min_compliance_solution = x_rank_0[min_compliance_sol_indx, :]
+    # f_min_weight_solution = f_rank_0[min_weight_sol_indx, :]
+    # f_min_compliance_solution = f_rank_0[min_compliance_sol_indx, :]
+    #
+    # np.savetxt(os.path.join(save_folder, 'x_extreme_current_gen'),
+    #            np.append(x_min_weight_solution, x_min_compliance_solution, axis=0))
+    # np.savetxt(os.path.join(save_folder, 'f_extreme_current_gen'),
+    #            np.append(f_min_weight_solution, f_min_compliance_solution, axis=0))
 
     if algorithm.problem.n_constr > 0:
         np.savetxt(os.path.join(save_folder, 'g_current_gen'), g_pop[rank_pop == 0])
