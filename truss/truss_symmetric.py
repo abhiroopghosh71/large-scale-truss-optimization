@@ -163,7 +163,7 @@ class TrussProblemSymmetric(Problem):
         return coordinates
 
     @staticmethod
-    def calc_obj(i, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density,
+    def calc_obj(x_row_indx, x, coordinates, connectivity, member_groups, fixed_nodes, load_nodes, force, density,
                  elastic_modulus, yield_stress, max_allowable_displacement, num_shape_vars, structure_type='truss'):
         r = np.copy(x[:-num_shape_vars])  # Radius of each element
         z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
@@ -189,7 +189,7 @@ class TrussProblemSymmetric(Problem):
             g3 = -1
         g = np.array([np.max(np.abs(stress)) - yield_stress, np.max(np.abs(u)) - max_allowable_displacement, g3])
 
-        return i, f, g, stress, strain, u, x0_new, coordinates, connectivity
+        return x_row_indx, f, g, stress, strain, u, x0_new, coordinates, connectivity
 
     def _evaluate(self, x_in, out, *args, **kwargs):
         # TODO: Parallelize obj eval

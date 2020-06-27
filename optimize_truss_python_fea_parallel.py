@@ -13,7 +13,7 @@ import numpy as np
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
-from pymoo.util.display import Display
+from pymoo.util.display import MultiObjectiveDisplay
 
 from truss.repair.truss_repair import ParameterlessInequalityRepair
 from truss.truss_symmetric import TrussProblemSymmetric
@@ -22,7 +22,7 @@ from truss.truss_symmetric_shape_only import TrussProblem
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
 
 
-class OptimizationDisplay(Display):
+class OptimizationDisplay(MultiObjectiveDisplay):
 
     def _do(self, problem, evaluator, algorithm):
         super()._do(problem, evaluator, algorithm)

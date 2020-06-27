@@ -51,22 +51,6 @@ class ParameterlessInequalityRepair(Repair):
 
         problem.z_avg, problem.z_std = ParameterlessInequalityRepair.calc_mean_std_without_outliers(z)
 
-        # z_avg = np.mean(z, axis=0)
-        # z_std = np.std(z, axis=0)
-
-        # Remove solutions with z_i not within 2 standard deviations of mean(z_i)
-        # z_without_outliers = [[] for _ in range(z.shape[1])]
-        # for indx in range(z.shape[1]):
-        #     arr = z[:, indx]
-        #     final_list = [x for x in arr if ((x > (z_avg[indx] - 2 * z_std[indx]))
-        #                                      or (x < (z_avg[indx] + 2 * z_std[indx]))
-        #                                      )]
-        #     z_without_outliers[indx] = copy.copy(final_list)
-        #
-        # for indx in range(z.shape[1]):
-        #     problem.z_avg[indx] = np.mean(z_without_outliers[indx])
-        #     problem.z_std[indx] = np.std(z_without_outliers[indx])
-
         # Get scores of each learned rule of the shape vars
         for indx in range(z.shape[1] - 1):
             curr_sol_z_i = z[:, indx]  # Get z(i) values for all solutions
@@ -190,6 +174,7 @@ class ParameterlessInequalityRepair(Repair):
                 for j in range(len(grp) - 1):
                     # Repair any solutions not conforming to the average with a probability proportional to the rule
                     # score
+                    # FIXME: Replace j with grp[j]?
                     diff = np.abs(r_repaired[j] - r_repaired[j + 1])
                     rnd = np.random.rand()
                     if (r_ref[j] < r_ref[j + 1]) and (r_repaired[j] > r_repaired[j + 1]) \

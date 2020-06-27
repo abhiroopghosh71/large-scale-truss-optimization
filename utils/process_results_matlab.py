@@ -1,11 +1,12 @@
-import h5py
 import os
-import numpy as np
 from pathlib import Path
-from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-import matplotlib.pyplot as plt
+
+import h5py
 import matlab
 import matlab.engine
+import matplotlib.pyplot as plt
+import numpy as np
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 import optimize_truss_matlab_fea
 
