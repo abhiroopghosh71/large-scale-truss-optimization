@@ -1,14 +1,13 @@
-import pytest
 import os
-import numpy as np
 import time
+
+import numpy as np
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 
-
 import optimize_truss_python_fea_parallel
-from truss.truss_symmetric_shape_only import TrussProblem
+from truss.truss_symmetric import TrussProblemSymmetric
 
 
 def test_truss_optimizer_python_fea():
@@ -19,7 +18,7 @@ def test_truss_optimizer_python_fea():
                                                                   f'truss_nsga2_test_seed{seed}_'
                                                                   f'{time.strftime("%Y%m%d-%H%M%S")}')
     os.makedirs(optimize_truss_python_fea_parallel.save_folder)
-    problem = TrussProblem()
+    problem = TrussProblemSymmetric()
 
     coordinates_file = 'tests/test_truss_input_output/coord_iscso.csv'
     connectivity_file = 'tests/test_truss_input_output/connect_iscso.csv'
