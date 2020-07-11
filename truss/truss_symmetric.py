@@ -5,7 +5,7 @@ import numpy as np
 from pymoo.model.problem import Problem
 
 from truss.fea.run_fea import run_fea
-from utils.generate_truss import gen_truss
+from truss.generate_truss import gen_truss
 
 logger = logging.getLogger(__name__)
 

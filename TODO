@@ -1,0 +1,7 @@
+# TODO
+
+    Major:
+        - Complete repair operator code
+        - Semi independent vars
+        - Calculate K_off (offline)
+        - Cjualculate K_on (online)

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import trim_mean
 
-from utils.generate_truss import gen_truss
+from truss.generate_truss import gen_truss
 
 if __name__ == '__main__':
     # output_folder = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/symmetric_truss_z_only_20200426/truss_10_symm_20200426'

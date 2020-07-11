@@ -1,6 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
 from matplotlib.markers import MarkerStyle
 
 
@@ -32,7 +31,7 @@ def draw_truss(node_coordinates, element_connectivity, fixed_nodes, load_nodes):
 
 
 if __name__ == '__main__':
-    from utils.generate_truss import gen_truss
+    from truss.generate_truss import gen_truss
     # coordinates, connectivity, fixed_nodes, load_nodes = gen_truss()
     # draw_truss(coordinates, connectivity, fixed_nodes, load_nodes)
     #

@@ -1,5 +1,7 @@
-import numpy as np
 import warnings
+
+import numpy as np
+
 from utils.visualization.draw_truss import draw_truss
 
 
