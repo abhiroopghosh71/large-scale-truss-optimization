@@ -170,11 +170,12 @@ def gen_truss(n_shape_nodes=19, member_radius=0.015, member_length_xyz=np.array(
         current_member_indx += 1
 
     element_connectivity = np.array(element_connectivity)
+    # Uncomment following line to have beam numbers start from 1 instead of 0
     element_connectivity[:, :2] = element_connectivity[:, :2] + 1
 
     return node_coordinates, element_connectivity, fixed_nodes, load_nodes, member_groups
 
 
 if __name__ == '__main__':
-    coordinates, connectivity, fixed_nodes, load_nodes, member_groups = gen_truss(n_shape_nodes=19)
+    coordinates, connectivity, fixed_nodes, load_nodes, member_groups = gen_truss(n_shape_nodes=7)
     draw_truss(coordinates, connectivity, fixed_nodes, load_nodes)

@@ -11,9 +11,9 @@ class ParameterlessInequalityRepair(Repair):
     def __init__(self, momentum_coefficient=0.3):
         super().__init__()
 
-        self.percent_of_pop_in_pf = 0.8  # How much of pop should be in pf before repair is done
+        self.percent_of_pop_in_pf = 0.8  # How much of pop should be in pf before innovization is done
         self.repair_interval = 10  # Generation gap between repairs
-        # Used to control the influence momentum has on deciding the reference shape used for repair
+        # Used to control the influence momentum has on deciding the reference shape used for innovization
         self.momentum_coefficient = momentum_coefficient
 
     @staticmethod
@@ -102,7 +102,7 @@ class ParameterlessInequalityRepair(Repair):
             # Proportion of solutions following a rule
             problem.size_rule_score[indx] = problem.size_rule_score[indx] / r.shape[0]
 
-        # Calculate ref. z vector used for repair
+        # Calculate ref. z vector used for innovization
         if len(problem.z_ref_history) > 1:
             z_avg_momentum = problem.z_ref_history[-1] - problem.z_ref_history[-2]
         else:
@@ -111,7 +111,7 @@ class ParameterlessInequalityRepair(Repair):
         problem.z_ref = problem.z_avg + self.momentum_coefficient*z_avg_momentum
         problem.z_ref_history.append(problem.z_ref)
 
-        # Calculate ref. r vector used for repair
+        # Calculate ref. r vector used for innovization
         if len(problem.r_ref_history) > 1:
             r_avg_momentum = problem.r_ref_history[-1] - problem.r_ref_history[-2]
         else:
@@ -123,15 +123,15 @@ class ParameterlessInequalityRepair(Repair):
         return problem
 
     def _do(self, problem, x, **kwargs):
-        """Perform repair on offsprings according to previously learned rules."""
-        # Do repair every 10 generations and after at least 20 generations have been done
+        """Perform innovization on offsprings according to previously learned rules."""
+        # Do innovization every 10 generations and after at least 20 generations have been done
         if kwargs['algorithm'].n_gen % self.repair_interval != 0 or problem.percent_rank_0 < self.percent_of_pop_in_pf:
             return x
 
         print("========================================")
-        print("Commencing parameterless repair sequence")
+        print("Commencing parameterless innovization sequence")
         print("========================================")
-        logger.info("Commencing parameterless monotonicity repair sequence")
+        logger.info("Commencing parameterless monotonicity innovization sequence")
 
         x_repaired = np.copy(x)  # Repaired offspring population
 
@@ -156,13 +156,13 @@ class ParameterlessInequalityRepair(Repair):
                 if (z_ref[j] < z_ref[j + 1]) and (z_repaired[j] > z_repaired[j + 1])\
                         and (rnd <= problem.shape_rule_score[j]):
                     # If z[j] > z[j + 1] shift z[j + 1] above z[j]
-                    # Ensure after repair z[j + 1] is within variable limits
+                    # Ensure after innovization z[j + 1] is within variable limits
                     z_repaired[j + 1] = np.minimum(z_repaired[j] + diff, z_xu[j + 1])
 
                 if (z_ref[j] > z_ref[j + 1]) and (z_repaired[j] < z_repaired[j + 1]) \
                         and (rnd <= problem.shape_rule_score[j]):
                     # If z[j] < z[j + 1] shift z[j + 1] below z[j]
-                    # Ensure after repair z[j + 1] is within variable limits
+                    # Ensure after innovization z[j + 1] is within variable limits
                     z_repaired[j + 1] = np.maximum(z_repaired[j] - diff, z_xl[j + 1])
             x_repaired[i, -problem.num_shape_vars:] = z_repaired  # Set the repaired z-coordinates for the offspring
 
@@ -180,17 +180,17 @@ class ParameterlessInequalityRepair(Repair):
                     if (r_ref[j] < r_ref[j + 1]) and (r_repaired[j] > r_repaired[j + 1]) \
                             and (rnd < problem.size_rule_score[indx][j]):
                         # If z[j] > z[j + 1] shift z[j + 1] above z[j]
-                        # Ensure after repair z[j + 1] is within variable limits
+                        # Ensure after innovization z[j + 1] is within variable limits
                         r_repaired[j + 1] = np.minimum(r_repaired[j] + diff, r_xu[j + 1])
 
                     if (r_ref[j] > r_ref[j + 1]) and (r_repaired[j] < r_repaired[j + 1]) \
                             and (rnd < problem.size_rule_score[indx][j]):
                         # If z[j] < z[j + 1] shift z[j + 1] below z[j]
-                        # Ensure after repair z[j + 1] is within variable limits
+                        # Ensure after innovization z[j + 1] is within variable limits
                         r_repaired[j + 1] = np.maximum(r_repaired[j] - diff, r_xl[j + 1])
             x_repaired[i, :problem.num_size_vars] = r_repaired  # Set the repaired z-coordinates for the offspring
 
-        logger.info("Parameterless repair complete")
+        logger.info("Parameterless innovization complete")
 
         # set the repaired design variables for the population
         # pop.set("X", x_repaired)

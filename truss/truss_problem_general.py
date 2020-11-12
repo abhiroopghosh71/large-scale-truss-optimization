@@ -3,7 +3,6 @@ import multiprocessing as mp
 
 import numpy as np
 from pymoo.model.problem import Problem
-from pymoo.model.repair import NoRepair
 
 from truss.fea.run_fea import run_fea
 from truss.generate_truss import gen_truss
@@ -11,13 +10,17 @@ from truss.generate_truss import gen_truss
 logger = logging.getLogger(__name__)
 
 
-class TrussProblemSymmetric(Problem):
+class TrussProblemGeneral(Problem):
+    """Generalizes the pymoo truss optimization problem. All node coordinates and beam sizes can be potentially
+    considered decision variables."""
 
     def __init__(self, num_shape_vars=10, n_cores=mp.cpu_count() // 4):
-        # Truss parameters
+        # Truss material properties
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
+
+        # Constraints
         self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
         self.num_shape_vars = num_shape_vars
 
@@ -169,11 +172,11 @@ class TrussProblemSymmetric(Problem):
         r = np.copy(x[:-num_shape_vars])  # Radius of each element
         z = np.copy(x[-num_shape_vars:])  # Z-coordinate of bottom members
 
-        connectivity = TrussProblemSymmetric.set_conectivity_matrix(connectivity=connectivity, r=r,
-                                                                    member_groups=member_groups)
+        connectivity = TrussProblemGeneral.set_conectivity_matrix(connectivity=connectivity, r=r,
+                                                                  member_groups=member_groups)
 
-        coordinates = TrussProblemSymmetric.set_coordinate_matrix(coordinates=coordinates, z=z,
-                                                                  num_shape_vars=num_shape_vars)
+        coordinates = TrussProblemGeneral.set_coordinate_matrix(coordinates=coordinates, z=z,
+                                                                num_shape_vars=num_shape_vars)
 
         weight, compliance, stress, strain, u, x0_new = run_fea(np.copy(coordinates), np.copy(connectivity),
                                                                 fixed_nodes,
@@ -201,22 +204,22 @@ class TrussProblemSymmetric(Problem):
         # KLUGE: Force smoothen shape
         # x[:, -self.num_shape_vars:] = np.flip(np.sort(x[:, -self.num_shape_vars:], axis=1), axis=1)
 
-        if hasattr(kwargs['algorithm'], 'innovization') and kwargs['algorithm'].repair is not None and type(kwargs['algorithm'].repair) != NoRepair:
+        if hasattr(kwargs['algorithm'], 'innovization') and kwargs['algorithm'].repair is not None:
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
         pool = mp.Pool(self.n_cores)
         logging.debug(f"Multiprocessing pool opened. CPU count = {mp.cpu_count()}, Pool Size = {self.n_cores}")
 
         # Call apply_async() for asynchronous evaluation of each population member
-        result_objects = [pool.apply_async(TrussProblemSymmetric.calc_obj, args=(i, row, np.copy(self.coordinates),
-                                                                                 np.copy(self.connectivity),
-                                                                                 self.member_groups,
-                                                                                 self.fixed_nodes,
-                                                                                 self.load_nodes, self.force,
-                                                                                 self.density, self.elastic_modulus,
-                                                                                 self.yield_stress,
-                                                                                 self.max_allowable_displacement,
-                                                                                 self.num_shape_vars,
+        result_objects = [pool.apply_async(TrussProblemGeneral.calc_obj, args=(i, row, np.copy(self.coordinates),
+                                                                               np.copy(self.connectivity),
+                                                                               self.member_groups,
+                                                                               self.fixed_nodes,
+                                                                               self.load_nodes, self.force,
+                                                                               self.density, self.elastic_modulus,
+                                                                               self.yield_stress,
+                                                                               self.max_allowable_displacement,
+                                                                               self.num_shape_vars,
                                                                                  'truss'))
                           for i, row in enumerate(x)]
 

@@ -3,6 +3,7 @@ import multiprocessing as mp
 
 import numpy as np
 from pymoo.model.problem import Problem
+from pymoo.model.repair import NoRepair
 
 from truss.fea.run_fea import run_fea
 from truss.generate_truss import gen_truss
@@ -117,7 +118,7 @@ class TrussProblem(Problem):
         if x.ndim == 1:
             x = x.reshape(1, -1)
 
-        if hasattr(kwargs['algorithm'], 'repair') and kwargs['algorithm'].repair is not None:
+        if hasattr(kwargs['algorithm'], 'innovization') and kwargs['algorithm'].repair is not None and type(kwargs['algorithm'].repair) != NoRepair:
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
         pool = mp.Pool(self.n_cores)

@@ -9,7 +9,7 @@ n_shape_var = 10;
 F = dlmread(strcat(experiment_path, 'f_max_gen'));
 X = dlmread(strcat(experiment_path, 'x_max_gen'));
 
-%%  3 constraints repair
+%%  3 constraints innovization
 % X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200414_truss_3_constr/truss_nsga2_seed184716924_20200413-233948/x_max_gen');
 % F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/20200414_truss_3_constr/truss_nsga2_seed184716924_20200413-233948/f_max_gen');
 
@@ -20,7 +20,7 @@ X = dlmread(strcat(experiment_path, 'x_max_gen'));
 
 %% 20 shape var
 % n_shape_var = 20;
-% % No repair
+% % No innovization
 % X = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_z_only_20200419/truss_20_xyz/x_max_gen');
 % F = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_z_only_20200419/truss_20_xyz/f_max_gen');
 
@@ -130,7 +130,7 @@ zlim([-30, 20])
 zlim([-30, 20])
 
 
-%% shape+size repair 1 obj
+%% shape+size innovization 1 obj
 % connect_1_obj = connectivity;
 % coord_1_obj = coord;
 % x_1_obj = dlmread('/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/TrussResults/truss_1obj_nsga2_seed184716924_20200412-190022/x_max_gen');

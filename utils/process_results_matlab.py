@@ -121,7 +121,7 @@ if __name__ == '__main__':
     #               'optimization_history.hdf5'
     [x, f, fronts_indx] = get_x_and_f(output_file)
 
-    # HV repair parameterless
+    # HV innovization parameterless
     # output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
     #               'TrussResults/' \
     #               '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/' \
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     #                '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-010108/f_current_gen')
 
 
-    # HV repair parameterless full
+    # HV innovization parameterless full
     # output_file = '/home/abhiroop/Insync/ghoshab1@msu.edu/Google Drive/Abhiroop/Data/MSU/Research/DARPA/Code/CP3/' \
     #               'TrussResults/' \
     #               '20200406_truss_nsga2_repair/truss_nsga2_repair_0.8pf_seed184716924_20200406-050017/' \

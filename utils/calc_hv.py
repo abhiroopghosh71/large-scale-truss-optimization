@@ -1,7 +1,7 @@
-from pymoo.factory import get_performance_indicator
-import numpy as np
 import h5py
 import matplotlib.pyplot as plt
+import numpy as np
+from pymoo.factory import get_performance_indicator
 
 
 def calc_hv(out_file, f_min_point=np.array([0, 0]), f_max_point=np.array([50000, 15])):
@@ -94,14 +94,14 @@ if __name__ == '__main__':
     ax1.set_ylim([0, 1.4])
     # np.savetxt('hv_10_asymm', hv_base)
     # np.savetxt('hv_10_asymm_repair', hv_repair)
-    # ax1.plot(hv_repair_prob[:, 0], hv_repair_prob[:, 1], c='green', alpha=0.75, label='Parameterless shape repair')
-    # ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape repair')
+    # ax1.plot(hv_repair_prob[:, 0], hv_repair_prob[:, 1], c='green', alpha=0.75, label='Parameterless shape innovization')
+    # ax1.plot(hv_repair_prob_full[:, 0], hv_repair_prob_full[:, 1], c='orange', alpha=0.75, label='Parameterless shape innovization')
 
-    # For xyz 20 var base vs repair
+    # For xyz 20 var base vs innovization
     fig2 = plt.figure()
     ax2 = fig2.add_subplot(111)
-    ax2.plot(hv_repair_20_xyz[:, 0], hv_repair_20_xyz[:, 1], c='red', alpha=0.75, label='No repair')
-    ax2.plot(hv_20_xyz[:, 0], hv_20_xyz[:, 1], c='blue', alpha=0.75, label='With repair')
+    ax2.plot(hv_repair_20_xyz[:, 0], hv_repair_20_xyz[:, 1], c='red', alpha=0.75, label='No innovization')
+    ax2.plot(hv_20_xyz[:, 0], hv_20_xyz[:, 1], c='blue', alpha=0.75, label='With innovization')
     ax2.set_title('20 shapevar asymmetric size')
 
     # ax1.axhline(y=0.9, c='black', alpha=0.5)

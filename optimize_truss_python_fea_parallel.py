@@ -3,6 +3,7 @@ import logging
 import multiprocessing as mp
 import os
 import pickle
+import shutil
 import sys
 import time
 import warnings
@@ -12,10 +13,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pymoo.algorithms.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
+from pymoo.model.repair import NoRepair
 from pymoo.optimize import minimize
 from pymoo.util.display import MultiObjectiveDisplay
 
-from truss.repair.truss_repair import ParameterlessInequalityRepair
+from truss.innovization.truss_repair import ParameterlessInequalityRepair
 from truss.truss_symmetric import TrussProblemSymmetric
 from truss.truss_symmetric_shape_only import TrussProblem
 
@@ -47,7 +49,13 @@ class OptimizationDisplay(MultiObjectiveDisplay):
 def record_state(algorithm):
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
-    rank_pop = algorithm.pop.get('rank')
+
+    # KLUGE: Pymoo returning ranks of None. Workaround replaces none values with -1.
+    r = algorithm.pop.get('rank')
+    rank_pop = -np.ones(x_pop.shape[0])
+    for i, rank in enumerate(r):
+        if rank is not None:
+            rank_pop[i] = rank
     g_pop = None
     cv_pop = None
 
@@ -56,7 +64,7 @@ def record_state(algorithm):
         cv_pop = algorithm.pop.get('CV')
     # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
 
-    if hasattr(algorithm, 'repair') and algorithm.repair is not None:
+    if hasattr(algorithm, 'innovization') and algorithm.repair is not None and type(algorithm.repair) != NoRepair:
         # Calculate avarage z-coordinate across all non-dominated solutions
         if rank_pop[0] == np.inf:
             algorithm.repair.learn_rules(algorithm.problem, x_pop)
@@ -69,7 +77,11 @@ def record_state(algorithm):
     # TODO: Add max gen to hdf file
     if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0 and (algorithm.n_gen != algorithm.termination.n_max_gen):
         return
-
+    if os.path.exists(save_folder) and algorithm.n_gen == 1:
+        shutil.move(save_folder, os.path.join('output', f'backup_{time.strftime("%Y%m%d-%H%M%S")}',
+                                              os.path.basename(save_folder)))
+    if algorithm.n_gen == 1:
+        os.makedirs(save_folder)
     with h5py.File(os.path.join(save_folder, 'optimization_history.hdf5'), 'a') as hf:
         g1 = hf.create_group(f'gen{algorithm.n_gen}')
 
@@ -103,18 +115,18 @@ def record_state(algorithm):
         g1.create_dataset('coordinates', data=coordinates_pop)
         g1.create_dataset('connectivity', data=connectivity_pop)
         g1.create_dataset('z_avg', data=algorithm.problem.z_avg)
-        g1.create_dataset('z_ref', data=algorithm.problem.z_ref)
+        # g1.create_dataset('z_ref', data=algorithm.problem.z_ref)
         g1.create_dataset('r_avg', data=algorithm.problem.r_avg)
-        g1.create_dataset('r_ref', data=algorithm.problem.r_ref)
+        # g1.create_dataset('r_ref', data=algorithm.problem.r_ref)
 
-        with open(os.path.join(save_folder, 'z_ref'), 'a') as f:
-            f.write(f"{algorithm.problem.z_ref}\n")
+        # with open(os.path.join(save_folder, 'z_ref'), 'a') as f:
+        #     f.write(f"{algorithm.problem.z_ref}\n")
         with open(os.path.join(save_folder, 'z_avg'), 'a') as f:
             f.write(f"{algorithm.problem.z_avg}\n")
         with open(os.path.join(save_folder, 'r_avg'), 'a') as f:
             f.write(f"{algorithm.problem.r_avg}\n")
-        with open(os.path.join(save_folder, 'r_ref'), 'a') as f:
-            f.write(f"{algorithm.problem.r_ref}\n")
+        # with open(os.path.join(save_folder, 'r_ref'), 'a') as f:
+        #     f.write(f"{algorithm.problem.r_ref}\n")
 
     # Save results
     np.savetxt(os.path.join(save_folder, 'f_current_gen'), f_pop[rank_pop == 0])
@@ -191,7 +203,7 @@ def parse_args(args):
     parser.add_argument('--popsize', type=int, default=100, help='Population size')
 
     # Innovization
-    parser.add_argument('--repair', action='store_true', default=False, help='Apply custom repair operator')
+    parser.add_argument('--innovization', action='store_true', default=False, help='Apply custom innovization operator')
     parser.add_argument('--momentum', type=float, default=0.3, help='Value of momentum coefficient')
 
     # Logging parameters
@@ -260,11 +272,11 @@ if __name__ == '__main__':
 
     save_folder = os.path.join('output', f'truss_nsga2_parallel_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
 
-    if cmd_args.repair:
+    if cmd_args.innovization:
         if truss_optimizer.pop_size < 50:
             warnings.warn("Population size might be too low to learn innovization rules")
             logging.warning("Population size might be too low to learn innovization rules")
-        # truss_optimizer.repair = MonotonicityRepairV1()
+        # truss_optimizer.innovization = MonotonicityRepairV1()
 
         truss_optimizer.repair = ParameterlessInequalityRepair(momentum_coefficient=cmd_args.momentum)
         save_folder = os.path.join('output',
@@ -292,8 +304,8 @@ if __name__ == '__main__':
     logging.info(f"Fixed nodes:\n{truss_problem.fixed_nodes}")
     logging.info(f"Load nodes:\n{truss_problem.load_nodes}")
     logging.info(f"Force:\n{truss_problem.force}")
-    if cmd_args.repair:
-        logging.info("Members grouped together for repair:\ntruss_problem.grouped_members")
+    if cmd_args.innovization:
+        logging.info("Members grouped together for innovization:\ntruss_problem.grouped_members")
     else:
         logging.info("Repair not active")
 

@@ -17,7 +17,7 @@ from pymoo.model.problem import Problem
 from pymoo.optimize import minimize
 from pymoo.util.display import Display
 
-from truss.repair.truss_repair import ParameterlessInequalityRepair
+from truss.innovization.truss_repair import ParameterlessInequalityRepair
 
 matlab_engine = matlab.engine.start_matlab()
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
@@ -88,7 +88,7 @@ class TrussProblem(Problem):
         if x.ndim == 1:
             x = x.reshape(1, -1)
 
-        if hasattr(kwargs['algorithm'], 'repair') and kwargs['algorithm'].repair is not None:
+        if hasattr(kwargs['algorithm'], 'innovization') and kwargs['algorithm'].repair is not None:
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
         n = x.shape[0]
@@ -161,7 +161,7 @@ def record_state(algorithm):
     cv_pop = algorithm.pop.get('CV')
     # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)
 
-    if hasattr(algorithm, 'repair') and algorithm.repair is not None:
+    if hasattr(algorithm, 'innovization') and algorithm.repair is not None:
         # Calculate avarage z-coordinate across all non-dominated solutions
         # algorithm.problem.z_avg = np.average(x_pop[rank_pop == 0][:, -10:], axis=0)
         # algorithm.problem.z_std = np.std(x_pop[rank_pop == 0][:, -10:], axis=0)
@@ -234,7 +234,7 @@ def parse_args(args):
     parser.add_argument('--seed', type=int, default=184716924, help='Random seed')
     parser.add_argument('--ngen', type=int, default=200, help='Maximum number of generations')
     parser.add_argument('--popsize', type=int, default=100, help='Population size')
-    parser.add_argument('--repair', action='store_true', default=False, help='Apply custom repair operator')
+    parser.add_argument('--innovization', action='store_true', default=False, help='Apply custom innovization operator')
 
     # Logging parameters
     parser.add_argument('--logging', action='store_true', default=True, help='Enable/disable logging')
@@ -296,7 +296,7 @@ if __name__ == '__main__':
         if truss_optimizer.pop_size < 50:
             warnings.warn("Population size might be too low to learn innovization rules")
             logging.warning("Population size might be too low to learn innovization rules")
-        # truss_optimizer.repair = MonotonicityRepairV1()
+        # truss_optimizer.innovization = MonotonicityRepairV1()
         truss_optimizer.repair = ParameterlessInequalityRepair()
         save_folder = os.path.join('output',
                                    f'truss_nsga2_repair_0.8pf_seed{cmd_args.seed}_{time.strftime("%Y%m%d-%H%M%S")}')
