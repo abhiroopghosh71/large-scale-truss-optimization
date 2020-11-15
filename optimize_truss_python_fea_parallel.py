@@ -77,11 +77,11 @@ def record_state(algorithm):
     # TODO: Add max gen to hdf file
     if (algorithm.n_gen != 1) and (algorithm.n_gen % 10) != 0 and (algorithm.n_gen != algorithm.termination.n_max_gen):
         return
-    if os.path.exists(save_folder) and algorithm.n_gen == 1:
-        shutil.move(save_folder, os.path.join('output', f'backup_{time.strftime("%Y%m%d-%H%M%S")}',
-                                              os.path.basename(save_folder)))
-    if algorithm.n_gen == 1:
-        os.makedirs(save_folder)
+    # if os.path.exists(save_folder) and algorithm.n_gen == 1:
+    #     shutil.move(save_folder, os.path.join('output', f'backup_{time.strftime("%Y%m%d-%H%M%S")}',
+    #                                           os.path.basename(save_folder)))
+    # if algorithm.n_gen == 1:
+    #     os.makedirs(save_folder)
     with h5py.File(os.path.join(save_folder, 'optimization_history.hdf5'), 'a') as hf:
         g1 = hf.create_group(f'gen{algorithm.n_gen}')
 
@@ -194,7 +194,7 @@ def parse_args(args):
     parser = argparse.ArgumentParser(description='Large Scale Truss Design Optimization')
 
     # Truss parameters
-    parser.add_argument('--nshapevar', type=int, default=10, help='Random seed')
+    parser.add_argument('--nshapevar', type=int, default=10, help='Number of shape variables')
     parser.add_argument('--symmetric', action='store_true', default=False, help='Enforce symmetricity of trusses')
 
     # Optimization parameters
@@ -205,13 +205,17 @@ def parse_args(args):
     # Innovization
     parser.add_argument('--innovization', action='store_true', default=False, help='Apply custom innovization operator')
     parser.add_argument('--momentum', type=float, default=0.3, help='Value of momentum coefficient')
+    parser.add_argument('--interactive', action='store_true', default=False,
+                        help='Enable interactive mode. Might interfere with online innovization')
+    parser.add_argument('--user-input-freq', type=float, default=100, help='Frequency with which user input is taken.')
+    parser.add_argument('--probability-update-freq', type=float, default=20, help='Frequency with which probability of selection of user provided operators is updated.')
 
     # Logging parameters
     parser.add_argument('--logging', action='store_true', default=True, help='Enable/disable logging')
     parser.add_argument('--save_folder', type=str, help='Experiment name')
 
     # Parallelization
-    parser.add_argument('--ncores', default=mp.cpu_count() // 4,
+    parser.add_argument('--ncores', type=int, default=mp.cpu_count() // 4,
                         help='How many cores to use for population members to be evaluated in parallel')
 
     # Not yet operational
@@ -256,9 +260,11 @@ if __name__ == '__main__':
     # seed = seed_list[0]
 
     if cmd_args.symmetric:
-        truss_problem = TrussProblemSymmetric(num_shape_vars=cmd_args.nshapevar)
+        truss_problem = TrussProblemSymmetric(num_shape_vars=cmd_args.nshapevar, n_cores=cmd_args.ncores)
+        print("Full symmetric truss")
     else:
-        truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar)
+        truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar, n_cores=cmd_args.ncores)
+        print("Only shape vars symmetric")
     truss_optimizer = NSGA2(
         pop_size=cmd_args.popsize,
         sampling=get_sampling("real_random"),
@@ -288,6 +294,9 @@ if __name__ == '__main__':
     if cmd_args.save_folder is not None:
         save_folder = os.path.join('output', cmd_args.save_folder)
 
+    if os.path.exists(save_folder):
+        shutil.move(save_folder, os.path.join('output', f'backup_{time.strftime("%Y%m%d-%H%M%S")}',
+                                              os.path.basename(save_folder)))
     os.makedirs(save_folder)
 
     if cmd_args.logging:

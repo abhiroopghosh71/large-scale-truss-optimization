@@ -31,6 +31,7 @@ def test_truss_optimizer_python_fea():
     problem.fixed_nodes = np.loadtxt(fixednodes_file).reshape(-1, 1)
     problem.load_nodes = np.loadtxt(loadn_file).reshape(-1, 1)
     problem.force = np.loadtxt(force_file, delimiter=',')
+    problem.n_cores = 1
 
     algorithm = NSGA2(
         pop_size=20,

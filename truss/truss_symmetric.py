@@ -204,42 +204,81 @@ class TrussProblemSymmetric(Problem):
         if hasattr(kwargs['algorithm'], 'innovization') and kwargs['algorithm'].repair is not None and type(kwargs['algorithm'].repair) != NoRepair:
             x = kwargs['algorithm'].repair.do(self, np.copy(x), **kwargs)
 
-        pool = mp.Pool(self.n_cores)
-        logging.debug(f"Multiprocessing pool opened. CPU count = {mp.cpu_count()}, Pool Size = {self.n_cores}")
+        if self.n_cores > 1:
+            pool = mp.Pool(self.n_cores)
+            logging.debug(f"Multiprocessing pool opened. CPU count = {mp.cpu_count()}, Pool Size = {self.n_cores}")
+            print(f"Multiprocessing pool opened. CPU count = {mp.cpu_count()}, Pool Size = {self.n_cores}")
 
-        # Call apply_async() for asynchronous evaluation of each population member
-        result_objects = [pool.apply_async(TrussProblemSymmetric.calc_obj, args=(i, row, np.copy(self.coordinates),
-                                                                                 np.copy(self.connectivity),
-                                                                                 self.member_groups,
-                                                                                 self.fixed_nodes,
-                                                                                 self.load_nodes, self.force,
-                                                                                 self.density, self.elastic_modulus,
-                                                                                 self.yield_stress,
-                                                                                 self.max_allowable_displacement,
-                                                                                 self.num_shape_vars,
-                                                                                 'truss'))
-                          for i, row in enumerate(x)]
+            # Call apply_async() for asynchronous evaluation of each population member
+            result_objects = [pool.apply_async(TrussProblemSymmetric.calc_obj, args=(i, row, np.copy(self.coordinates),
+                                                                                     np.copy(self.connectivity),
+                                                                                     self.member_groups,
+                                                                                     self.fixed_nodes,
+                                                                                     self.load_nodes, self.force,
+                                                                                     self.density, self.elastic_modulus,
+                                                                                     self.yield_stress,
+                                                                                     self.max_allowable_displacement,
+                                                                                     self.num_shape_vars,
+                                                                                     'truss'))
+                              for i, row in enumerate(x)]
 
-        pool.close()  # Need to close the pool to prevent spawning too many processes
-        pool.join()
-        logging.debug("Parallel objective evaluation complete. Pool closed.")
+            pool.close()  # Need to close the pool to prevent spawning too many processes
+            pool.join()
+            logging.debug("Parallel objective evaluation complete. Pool closed.")
 
-        # Result_objects is a list of pool.ApplyResult objects
-        results = [r.get() for r in result_objects]
+            # Result_objects is a list of pool.ApplyResult objects
+            results = [r.get() for r in result_objects]
 
-        # apply_async() might return results in a different order
-        results.sort(key=lambda r: r[0])
+            # apply_async() might return results in a different order
+            results.sort(key=lambda r: r[0])
 
-        if x_in.ndim == 1:
-            out['X'] = x.flatten()
+            if x_in.ndim == 1:
+                out['X'] = x.flatten()
+            else:
+                out['X'] = np.copy(x)
+            out['F'] = np.array([[r[1][0], r[1][1]] for r in results])
+            out['G'] = np.array([[r[2][c] for c in range(self.n_constr)] for r in results])
+
+            out['stress'] = np.array([r[3] for r in results])
+            out['strain'] = np.array([r[4] for r in results])
+            out['u'] = np.array([r[5] for r in results])
+            out['x0_new'] = np.array([r[6] for r in results])
+            out['coordinates'] = np.array([r[7] for r in results])
+            out['connectivity'] = np.array([r[8] for r in results])
         else:
-            out['X'] = np.copy(x)
-        out['F'] = np.array([[r[1][0], r[1][1]] for r in results])
-        out['G'] = np.array([[r[2][c] for c in range(self.n_constr)] for r in results])
+            print("Sequential execution.")
+            result_objects = map(TrussProblemSymmetric.calc_obj,
+                                 np.arange(x.shape[0]),
+                                 x,
+                                 [np.copy(self.coordinates) for _ in range(x.shape[0])],
+                                 [np.copy(self.connectivity) for _ in range(x.shape[0])],
+                                 [self.member_groups for _ in range(x.shape[0])],
+                                 [self.fixed_nodes for _ in range(x.shape[0])],
+                                 [self.load_nodes for _ in range(x.shape[0])],
+                                 [self.force for _ in range(x.shape[0])],
+                                 [self.density for _ in range(x.shape[0])],
+                                 [self.elastic_modulus for _ in range(x.shape[0])],
+                                 [self.yield_stress for _ in range(x.shape[0])],
+                                 [self.max_allowable_displacement for _ in range(x.shape[0])],
+                                 [self.num_shape_vars for _ in range(x.shape[0])],
+                                 ['truss' for _ in range(x.shape[0])])
 
-        out['stress'] = np.array([r[3] for r in results])
-        out['strain'] = np.array([r[4] for r in results])
-        out['u'] = np.array([r[5] for r in results])
-        out['x0_new'] = np.array([r[6] for r in results])
-        out['coordinates'] = np.array([r[7] for r in results])
-        out['connectivity'] = np.array([r[8] for r in results])
+            logging.debug("Objective evaluation complete.")
+
+            # Result_objects is a list of pool.ApplyResult objects
+            results = list(result_objects)
+            # results = result_objects
+
+            if x_in.ndim == 1:
+                out['X'] = x.flatten()
+            else:
+                out['X'] = np.copy(x)
+            out['F'] = np.array([r[1] for r in results])
+            out['G'] = np.array([r[2] for r in results])
+
+            out['stress'] = np.array([r[3] for r in results])
+            out['strain'] = np.array([r[4] for r in results])
+            out['u'] = np.array([r[5] for r in results])
+            out['x0_new'] = np.array([r[6] for r in results])
+            out['coordinates'] = np.array([r[7] for r in results])
+            out['connectivity'] = np.array([r[8] for r in results])
