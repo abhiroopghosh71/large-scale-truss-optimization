@@ -18,7 +18,7 @@ from pymoo.optimize import minimize
 from pymoo.util.display import MultiObjectiveDisplay
 
 from truss.innovization.truss_repair import ParameterlessInequalityRepair
-from truss.truss_symmetric import TrussProblemSymmetric
+from truss.truss_problem_general import TrussProblemGeneral
 from truss.truss_symmetric_shape_only import TrussProblem
 
 save_folder = os.path.join('output', 'truss_optimization_nsga2')
@@ -260,11 +260,11 @@ if __name__ == '__main__':
     # seed = seed_list[0]
 
     if cmd_args.symmetric:
-        truss_problem = TrussProblemSymmetric(num_shape_vars=cmd_args.nshapevar, n_cores=cmd_args.ncores)
-        print("Full symmetric truss")
+        truss_problem = TrussProblemGeneral(num_shape_vars=cmd_args.nshapevar, n_cores=cmd_args.ncores)
+        print(f"Full symmetric truss {truss_problem}")
     else:
         truss_problem = TrussProblem(num_shape_vars=cmd_args.nshapevar, n_cores=cmd_args.ncores)
-        print("Only shape vars symmetric")
+        print(f"Only shape vars symmetric {truss_problem}")
     truss_optimizer = NSGA2(
         pop_size=cmd_args.popsize,
         sampling=get_sampling("real_random"),

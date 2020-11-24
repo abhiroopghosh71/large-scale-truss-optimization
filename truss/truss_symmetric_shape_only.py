@@ -8,14 +8,17 @@ from pymoo.model.repair import NoRepair
 from truss.fea.run_fea import run_fea
 from truss.generate_truss import gen_truss
 
+logger = logging.getLogger(__name__)
 
 class TrussProblem(Problem):
 
     def __init__(self, num_shape_vars=10, n_cores=mp.cpu_count() // 4):
-        # Truss parameters
+        # Truss material properties
         self.density = 7121.4  # kg/m3
         self.elastic_modulus = 200e9  # Pa
         self.yield_stress = 248.2e6  # Pa
+
+        # Constraints
         self.max_allowable_displacement = 0.025  # Max displacements of all nodes in x, y, and z directions
         self.num_shape_vars = num_shape_vars
 
@@ -44,10 +47,15 @@ class TrussProblem(Problem):
         print(f"No. of shape vars = {self.num_shape_vars}")
         print(self.force)
 
+        # Innovization parameters (general)
+        self.percent_rank_0 = None
+
         # Innovization parameters (shape)
-        self.z_avg = -1e16 * np.ones(self.num_shape_vars)
-        self.z_std = -1e16 * np.ones(self.num_shape_vars)
+        self.z_avg = np.nan * np.ones(self.num_shape_vars)
+        self.z_std = np.nan * np.ones(self.num_shape_vars)
         self.shape_rule_score = np.zeros(self.num_shape_vars - 1)  # A score given to a rule between 0 and 1
+        self.z_ref = np.nan * np.ones(self.num_shape_vars)  # The reference shape to use for innovization
+        self.z_ref_history = []
 
         # Innovization parameters (size)
         # TODO: Replace with groups returned from gen_truss

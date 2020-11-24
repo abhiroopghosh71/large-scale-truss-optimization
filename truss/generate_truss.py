@@ -177,5 +177,5 @@ def gen_truss(n_shape_nodes=19, member_radius=0.015, member_length_xyz=np.array(
 
 
 if __name__ == '__main__':
-    coordinates, connectivity, fixed_nodes, load_nodes, member_groups = gen_truss(n_shape_nodes=7)
+    coordinates, connectivity, fixed_nodes, load_nodes, member_groups = gen_truss(n_shape_nodes=19)
     draw_truss(coordinates, connectivity, fixed_nodes, load_nodes)
