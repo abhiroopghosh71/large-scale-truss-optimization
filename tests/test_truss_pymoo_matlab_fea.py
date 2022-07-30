@@ -2,7 +2,7 @@ import os
 import time
 
 import numpy as np
-from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 
@@ -13,7 +13,7 @@ def test_truss_optimizer():
     t0 = time.time()
     os.chdir('..')
     seed = 184716924
-    optimize_truss_matlab_fea.save_file = os.path.join(os.getcwd(), 'output',
+    optimize_truss_matlab_fea.save_folder = os.path.join(os.getcwd(), 'output',
                                                        f'truss_nsga2_test_seed{seed}_{time.strftime("%Y%m%d-%H%M%S")}')
     os.makedirs(optimize_truss_matlab_fea.save_folder)
     problem = optimize_truss_matlab_fea.TrussProblem()

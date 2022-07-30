@@ -11,9 +11,9 @@ import matlab
 import matlab.engine
 import matplotlib.pyplot as plt
 import numpy as np
-from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.problem import Problem
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.model.problem import Problem
 from pymoo.optimize import minimize
 from pymoo.util.display import Display
 
@@ -156,7 +156,11 @@ class TrussProblem(Problem):
 def record_state(algorithm):
     x_pop = algorithm.pop.get('X')
     f_pop = algorithm.pop.get('F')
-    rank_pop = algorithm.pop.get('rank')
+    r = algorithm.pop.get('rank')
+    rank_pop = -np.ones(x_pop.shape[0])
+    for i, rank in enumerate(r):
+        if rank is not None:
+            rank_pop[i] = rank
     g_pop = algorithm.pop.get('G')
     cv_pop = algorithm.pop.get('CV')
     # algorithm.problem.z_monotonicity_matrix = get_monotonicity_pattern(x_pop, f_pop, rank_pop)

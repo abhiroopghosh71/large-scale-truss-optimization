@@ -2,8 +2,8 @@ import logging
 import multiprocessing as mp
 
 import numpy as np
-from pymoo.model.problem import Problem
-from pymoo.model.repair import NoRepair
+from pymoo.core.problem import Problem
+from pymoo.core.repair import NoRepair
 
 from truss.fea.run_fea import run_fea
 from truss.generate_truss import gen_truss

@@ -2,7 +2,7 @@ import os
 import time
 
 import numpy as np
-from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
 from pymoo.optimize import minimize
 

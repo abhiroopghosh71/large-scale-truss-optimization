@@ -6,9 +6,9 @@ import matlab
 import matlab.engine
 import matplotlib.pyplot as plt
 import numpy as np
-from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.problem import Problem
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.model.problem import Problem
 from pymoo.optimize import minimize
 
 matlab_engine = matlab.engine.start_matlab()

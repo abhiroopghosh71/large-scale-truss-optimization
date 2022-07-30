@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from pymoo.model.repair import Repair
+from pymoo.core.repair import Repair
 
 logger = logging.getLogger(__name__)
 

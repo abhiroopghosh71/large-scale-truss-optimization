@@ -8,7 +8,7 @@ import pandas as pd
 from openpyxl.styles import PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.worksheet.datavalidation import DataValidation
-from pymoo.model.repair import Repair
+from pymoo.core.repair import Repair
 
 logger = logging.getLogger(__name__)
 

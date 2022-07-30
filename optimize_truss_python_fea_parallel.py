@@ -11,9 +11,9 @@ import warnings
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from pymoo.algorithms.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.core.repair import NoRepair
 from pymoo.factory import get_sampling, get_crossover, get_mutation, get_termination
-from pymoo.model.repair import NoRepair
 from pymoo.optimize import minimize
 from pymoo.util.display import MultiObjectiveDisplay
 
