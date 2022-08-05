@@ -58,6 +58,6 @@ https://doi.org/10.1109/ACCESS.2020.2990567
 
 3. K. Deb, A. Pratap, S. Agarwal and T. Meyarivan, "A fast and elitist 
 multiobjective genetic algorithm: NSGA-II," in IEEE Transactions on 
-Evolutionary Computation_, vol. 6, no. 2, pp. 182-197, April 2002. 
+Evolutionary Computation, vol. 6, no. 2, pp. 182-197, April 2002. 
 https://doi.org/10.1109/4235.996017
 
