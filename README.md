@@ -48,9 +48,16 @@ For example, to run the optimization with a 40 population size and 100 generatio
 Please report issues to me, Abhiroop Ghosh, at ghoshab1@msu.edu.
 
 <h2>References:</h4>
-1. A. Ghosh, K. Deb, E. Goodman, R. Averill, A. Diaz, "Combining User Knowledge and Online Innovization for Faster Solution to Multi-objective Design Optimization Problems," Combining User Knowledge and Online Innovization for Faster Solution to Multi-objective Design Optimization Problems, https://doi.org/10.1007/978-3-030-72062-9_9
+1. A. Ghosh, K. Deb, R. Averill, E. Goodman, "Combining User Knowledge and Online 
+Innovization for Faster Solution to Multi-objective Design Optimization Problems", 
+https://doi.org/10.1007/978-3-030-72062-9_9
 
-2. J. Blank and K. Deb, pymoo: Multi-Objective Optimization in Python, in IEEE Access, vol. 8, pp. 89497-89509, 2020, https://doi.org/10.1109/ACCESS.2020.2990567
+2. J. Blank and K. Deb, pymoo: Multi-Objective Optimization in Python, in 
+IEEE Access, vol. 8, pp. 89497-89509, 2020, 
+https://doi.org/10.1109/ACCESS.2020.2990567
 
-3. K. Deb, A. Pratap, S. Agarwal and T. Meyarivan, "A fast and elitist multiobjective genetic algorithm: NSGA-II," in _IEEE Transactions on Evolutionary Computation_, vol. 6, no. 2, pp. 182-197, April 2002. https://doi.org/10.1109/4235.996017
+3. K. Deb, A. Pratap, S. Agarwal and T. Meyarivan, "A fast and elitist 
+multiobjective genetic algorithm: NSGA-II," in IEEE Transactions on 
+Evolutionary Computation_, vol. 6, no. 2, pp. 182-197, April 2002. 
+https://doi.org/10.1109/4235.996017
 
