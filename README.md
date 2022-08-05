@@ -1,5 +1,4 @@
-# large-scale-truss-optimization
-# Solid rocket motor design using multi-objective optimization
+# Optimizing weight and compliance of a large 3D truss
 Multi-objective optimization of the weight and compliance of a large 3D truss subject to 
 stress and displacement constraints [1] using NSGA-II [3]. Pymoo [2] is used for 
 implementing NSGA-II. Finite element analysis (FEA) is performed in order to calculate 
